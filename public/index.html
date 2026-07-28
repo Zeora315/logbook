@@ -68,6 +68,25 @@
       </section>
 
       <aside class="right-rail" id="right-rail" aria-label="右侧边栏">
+        <section class="rail-card authors-card" aria-labelledby="authors-title">
+          <p class="kicker">Authors</p>
+          <h2 class="side-title" id="authors-title">作者</h2>
+          <div class="author-switch-list" aria-label="按作者查看">
+            <a class="author-switch is-active" href="/" data-author-filter="all" aria-label="查看全部更新">
+              <span class="author-switch-avatar author-all" aria-hidden="true">全</span>
+              <span>全部</span>
+            </a>
+            <a class="author-switch" href="/author.html?id=me" data-author-filter="me" aria-label="查看我的更新">
+              <span class="author-switch-avatar" style="--author-color: #4b8fbf" aria-hidden="true">我</span>
+              <span>我</span>
+            </a>
+            <a class="author-switch" href="/author.html?id=openclaw" data-author-filter="openclaw" aria-label="查看虾米的更新">
+              <span class="author-switch-avatar" style="--author-color: #ee8f43" aria-hidden="true">虾</span>
+              <span>虾米</span>
+            </a>
+          </div>
+        </section>
+
         <section class="rail-card stats-card" aria-label="日志统计">
           <p class="kicker">Stats</p>
           <div class="stats-grid" id="stats-grid">

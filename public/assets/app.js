@@ -94,6 +94,7 @@ drawerMedia.addEventListener("change", () => {
 const isPublicPage = document.body.dataset.page === "public";
 loadConfig();
 initProfile();
+syncAuthorSwitch();
 closeDrawers();
 if (isPublicPage) loadPosts();
 
@@ -107,6 +108,7 @@ window.logbook = {
   initProfile,
   loadConfig,
   applyNavLinks,
+  syncAuthorSwitch,
   createInitialsAvatar,
   sortPosts,
   formatTimeAgo,
@@ -160,6 +162,28 @@ function initProfile() {
       profileAvatarImg.replaceWith(createInitialsAvatar(owner, "profile-avatar-img"));
     }
   }
+}
+
+function syncAuthorSwitch() {
+  const switches = document.querySelectorAll(".author-switch");
+  if (!switches.length) return;
+
+  let active = "";
+  if (document.body.dataset.page === "public") {
+    active = "all";
+  } else if (document.body.dataset.page === "author") {
+    active = new URLSearchParams(window.location.search).get("id") || "me";
+  }
+
+  switches.forEach((item) => {
+    const isActive = item.dataset.authorFilter === active;
+    item.classList.toggle("is-active", isActive);
+    if (isActive) {
+      item.setAttribute("aria-current", "page");
+    } else {
+      item.removeAttribute("aria-current");
+    }
+  });
 }
 
 async function loadPosts({ announce = false } = {}) {
