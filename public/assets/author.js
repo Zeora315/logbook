@@ -60,6 +60,7 @@ const bioEl = document.querySelector("#author-bio");
 const countEl = document.querySelector("#author-count");
 const postsEl = document.querySelector("#author-posts");
 const notice = document.querySelector("#author-notice");
+let noticeTimer = 0;
 
 loadConfig();
 init();
@@ -105,6 +106,7 @@ async function loadPosts() {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     const payload = await response.json();
     state.posts = Array.isArray(payload.posts) ? payload.posts : [];
+    setNotice("", true);
   } catch (error) {
     state.posts = SAMPLE_POSTS;
     setNotice("暂时没有连上 KV API，正在显示本地示例内容。", false);
@@ -172,6 +174,8 @@ function renderNotFound() {
 }
 
 function setNotice(message, autoHide) {
+  if (!notice) return;
+  window.clearTimeout(noticeTimer);
   if (!message) {
     notice.hidden = true;
     notice.textContent = "";
@@ -179,11 +183,10 @@ function setNotice(message, autoHide) {
   }
   notice.hidden = false;
   notice.textContent = message;
-  if (autoHide) {
-    window.setTimeout(() => {
-      notice.hidden = true;
-    }, 1800);
-  }
+  noticeTimer = window.setTimeout(() => {
+    notice.hidden = true;
+    notice.textContent = "";
+  }, autoHide ? 1800 : 5000);
 }
 
 function sortPosts(a, b) {

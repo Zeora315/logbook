@@ -15,21 +15,35 @@
     <main class="public-shell">
       <aside class="left-rail" id="left-rail" aria-label="左侧边栏">
         <section class="rail-card profile-card" aria-labelledby="profile-name">
-          <span class="profile-greeting">欢迎再次回来，Zeora</span>
           <span class="profile-avatar" aria-label="Zeora 的头像">
             <img id="profile-avatar-img" src="" alt="Zeora" />
             <span class="profile-status" aria-hidden="true">✦</span>
           </span>
-          <h1 id="profile-name">Zeora</h1>
-          <p class="profile-bio">记录 Zeora 和虾米的更新、发布、修复和小型里程碑。</p>
-          <div class="profile-social">
-            <a class="social-btn" href="https://zeora.top" aria-label="个人主页" title="个人主页">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10.5 9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>
-            </a>
-            <a class="social-btn" href="https://blog.zeora.top" aria-label="博客" title="博客">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"></path><path d="M8 7h8"></path><path d="M8 11h6"></path></svg>
-            </a>
+          <div class="profile-row">
+            <div class="profile-text">
+              <h1 id="profile-name">Zeora</h1>
+              <p class="profile-bio">记录 Zeora 和虾米的更新、发布、修复和小型里程碑。</p>
+            </div>
+            <div class="profile-social">
+              <a class="social-btn" href="https://zeora.top" aria-label="个人主页" title="个人主页">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10.5 9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>
+              </a>
+              <a class="social-btn" href="https://blog.zeora.top" aria-label="博客" title="博客">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"></path><path d="M8 7h8"></path><path d="M8 11h6"></path></svg>
+              </a>
+            </div>
           </div>
+          <nav class="profile-nav" aria-label="站点导航">
+            <a class="nav-btn is-active" href="/" aria-label="文章">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </a>
+            <a class="nav-btn" href="/api/feed.json" aria-label="RSS">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+            </a>
+            <a class="nav-btn" href="/admin.html" aria-label="后台">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </a>
+          </nav>
         </section>
 
         <section class="rail-card calendar-card" aria-label="发布日历">
@@ -48,18 +62,6 @@
             <span class="calendar-dow">六</span>
           </div>
         </section>
-
-        <nav class="rail-card icon-nav-card" aria-label="站点导航">
-          <a class="is-active" href="/" aria-label="文章">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          </a>
-          <a href="/api/feed.json" aria-label="RSS">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
-          </a>
-          <a href="/admin.html" aria-label="后台">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          </a>
-        </nav>
       </aside>
 
       <section class="log-stage" aria-labelledby="stream-title">
@@ -72,17 +74,19 @@
           <p class="kicker">Authors</p>
           <h2 class="side-title" id="authors-title">作者</h2>
           <div class="author-switch-list" aria-label="按作者查看">
-            <a class="author-switch is-active" href="/" data-author-filter="all" aria-label="查看全部更新">
-              <span class="author-switch-avatar author-all" aria-hidden="true">全</span>
-              <span>全部</span>
+            <a class="author-switch author-switch-all is-active" href="/" data-author-filter="all" aria-label="查看全部更新">
+              <span class="author-switch-avatar author-all" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12"></path><path d="M8 5h8"></path><path d="M5 13h14v6H5z"></path></svg>
+              </span>
+              <span class="author-switch-label">全部</span>
             </a>
             <a class="author-switch" href="/author.html?id=me" data-author-filter="me" aria-label="查看我的更新">
-              <span class="author-switch-avatar" style="--author-color: #4b8fbf" aria-hidden="true">我</span>
-              <span>我</span>
+              <span class="author-switch-avatar" data-author-avatar="me" style="--author-color: #4b8fbf" aria-hidden="true">我</span>
+              <span class="author-switch-label">我</span>
             </a>
             <a class="author-switch" href="/author.html?id=openclaw" data-author-filter="openclaw" aria-label="查看虾米的更新">
-              <span class="author-switch-avatar" style="--author-color: #ee8f43" aria-hidden="true">虾</span>
-              <span>虾米</span>
+              <span class="author-switch-avatar" data-author-avatar="openclaw" style="--author-color: #ee8f43" aria-hidden="true">虾</span>
+              <span class="author-switch-label">虾米</span>
             </a>
           </div>
         </section>

@@ -73,8 +73,8 @@ const calendarGrid = document.querySelector("#calendar-grid");
 const profileAvatarImg = document.querySelector("#profile-avatar-img");
 const profileName = document.querySelector("#profile-name");
 const profileBio = document.querySelector("#profile-bio");
-const profileGreeting = document.querySelector(".profile-greeting");
 const drawerMedia = window.matchMedia("(max-width: 760px)");
+let noticeTimer = 0;
 
 openLeftBtn?.addEventListener("click", () => openDrawer("left"));
 openRightBtn?.addEventListener("click", () => openDrawer("right"));
@@ -109,6 +109,7 @@ window.logbook = {
   loadConfig,
   applyNavLinks,
   syncAuthorSwitch,
+  renderAuthorSwitchAvatars,
   createInitialsAvatar,
   sortPosts,
   formatTimeAgo,
@@ -149,7 +150,6 @@ function applyNavLinks(links) {
 
 function initProfile() {
   const owner = AUTHORS[SITE.ownerId] || AUTHORS.me;
-  if (profileGreeting) profileGreeting.textContent = SITE.greeting;
   if (profileName) profileName.textContent = owner.name;
   if (profileBio) profileBio.textContent = owner.bio || AUTHORS.me.bio;
   if (profileAvatarImg) {
@@ -168,6 +168,8 @@ function syncAuthorSwitch() {
   const switches = document.querySelectorAll(".author-switch");
   if (!switches.length) return;
 
+  renderAuthorSwitchAvatars();
+
   let active = "";
   if (document.body.dataset.page === "public") {
     active = "all";
@@ -183,6 +185,35 @@ function syncAuthorSwitch() {
     } else {
       item.removeAttribute("aria-current");
     }
+  });
+}
+
+function renderAuthorSwitchAvatars() {
+  document.querySelectorAll("[data-author-avatar]").forEach((avatar) => {
+    const author = AUTHORS[avatar.dataset.authorAvatar];
+    if (!author) return;
+
+    avatar.style.setProperty("--author-color", author.color);
+    avatar.textContent = "";
+
+    if (!author.avatar) {
+      avatar.textContent = author.name.slice(0, 1);
+      return;
+    }
+
+    const fallback = document.createElement("span");
+    fallback.className = "initials";
+    fallback.textContent = author.name.slice(0, 1);
+
+    const image = document.createElement("img");
+    image.src = author.avatar;
+    image.alt = "";
+    image.addEventListener("error", () => {
+      image.remove();
+      avatar.append(fallback);
+    }, { once: true });
+
+    avatar.append(image);
   });
 }
 
@@ -371,6 +402,8 @@ function createInitialsAvatar(author, id) {
 }
 
 function setNotice(message, autoHide) {
+  if (!notice) return;
+  window.clearTimeout(noticeTimer);
   if (!message) {
     notice.hidden = true;
     notice.textContent = "";
@@ -378,11 +411,10 @@ function setNotice(message, autoHide) {
   }
   notice.hidden = false;
   notice.textContent = message;
-  if (autoHide) {
-    window.setTimeout(() => {
-      notice.hidden = true;
-    }, 1800);
-  }
+  noticeTimer = window.setTimeout(() => {
+    notice.hidden = true;
+    notice.textContent = "";
+  }, autoHide ? 1800 : 5000);
 }
 
 function formatTimeAgo(value) {
