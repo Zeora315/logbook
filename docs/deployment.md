@@ -156,15 +156,41 @@ Cloudflare 在构建环境使用 `CLOUDFLARE_API_TOKEN` 执行 `npx wrangler pag
   Authentication error [code: 10000]
 ```
 
-解决方法：
+日志里通常还会出现：
+
+```txt
+It looks like you are authenticating Wrangler via a custom API token set in an environment variable.
+The API Token is read from the CLOUDFLARE_API_TOKEN environment variable.
+```
+
+这里的 `CLOUDFLARE_API_TOKEN` 是 **构建部署用的 API Token**，不是后台登录用的 `ADMIN_USERNAME` / `ADMIN_PASSWORD`，也不是上面运行时 **变量和密钥** 表格里的普通变量。
+
+解决方法一：修正当前构建 token
+
+1. 进入 Cloudflare 项目：**Workers 和 Pages** > `logbook` > **设置**。
+2. 滚动到 **构建** 区域。
+3. 找到 **API 令牌**，例如 `logbook build token`，点击 **编辑**。
+4. 打开 token 管理页后，确认它至少有这些权限：
+   - **Account** > **Cloudflare Pages** > **Edit**
+   - **Account** > **Account Settings** > **Read**
+5. 确认账号资源范围包含当前账号 `Huanhuan3156@163.com's Account`，不要选到别的账号。
+6. 保存 token。
+7. 回到 Pages 项目，重新部署一次。
+
+解决方法二：新建一个专用 token
 
 1. 打开 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)。
-2. 找到当前使用的 token，点击 **Edit**。
-3. 添加权限：
-   - **Cloudflare Pages** → **Edit**
-   - **Account** → **Read**（如未添加）
-4. 保存 token。
-5. 回到 Pages 项目，重新部署一次。
+2. 点击 **Create Token**。
+3. 选择 **Custom token**。
+4. 权限填写：
+   - **Account** > **Cloudflare Pages** > **Edit**
+   - **Account** > **Account Settings** > **Read**
+5. 账号资源选择当前账号 `Huanhuan3156@163.com's Account`。
+6. 创建后复制 token。
+7. 回到 `logbook` 项目 **设置** > **构建** > **API 令牌**，把它换成新 token。
+8. 重新部署。
+
+如果之后不再报 `Authentication error`，但改成 KV 相关错误，再检查 `LOG_KV` 是否绑定到 Pages Functions，或 `wrangler.jsonc` 里的 KV `id` / `preview_id` 是否已换成真实值。
 
 ## 5. 绑定 KV Namespace
 
