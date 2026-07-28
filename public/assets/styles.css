@@ -1161,7 +1161,7 @@ textarea::placeholder {
   resize: vertical;
 }
 
-.author-switch {
+.author-radio-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
@@ -1170,7 +1170,7 @@ textarea::placeholder {
   padding: 0;
 }
 
-.author-switch legend {
+.author-radio-group legend {
   width: 100%;
   margin-bottom: 0.2rem;
   color: var(--muted);
@@ -1178,13 +1178,13 @@ textarea::placeholder {
   font-weight: 750;
 }
 
-.author-switch input {
+.author-radio-group input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
 
-.author-switch span {
+.author-radio-group span {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -1197,7 +1197,7 @@ textarea::placeholder {
   font-weight: 850;
 }
 
-.author-switch input:checked + span {
+.author-radio-group input:checked + span {
   border-color: #bdd2e5;
   background: var(--accent-soft);
   color: var(--accent);
