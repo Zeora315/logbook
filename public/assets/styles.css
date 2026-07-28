@@ -181,7 +181,7 @@ a {
   scrollbar-width: thin;
   scrollbar-color: rgba(111, 118, 127, 0.34) transparent;
   -ms-overflow-style: none;
-  padding: 0.65rem;
+  padding: 0.65rem 0.65rem 0;
   border: 1px solid rgba(228, 231, 235, 0.7);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.62);
