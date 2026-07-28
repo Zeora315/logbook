@@ -1,0 +1,6 @@
+ADMIN_USERNAME=zeora
+ADMIN_PASSWORD=replace-with-a-long-password
+SITE_TITLE=我的更新日志
+SITE_DESCRIPTION=记录 Zeora 和虾米的更新、发布与想法。
+TRUST_CF_ACCESS_HEADERS=false
+ADMIN_EMAILS=

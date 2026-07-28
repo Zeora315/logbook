@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>后台 - 我的更新日志</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script type="module" src="/assets/admin.js"></script>
+  </head>
+  <body data-page="admin">
+    <a class="skip-link" href="#admin-content">跳到管理内容</a>
+
+    <section class="login-panel" id="login-panel" aria-labelledby="login-title">
+      <div class="login-brand">
+        <span class="brand-led" aria-hidden="true"></span>
+        <span>Logbook Admin</span>
+      </div>
+      <h1 id="login-title">欢迎回来</h1>
+      <p class="login-lead">请输入账号密码进入后台</p>
+
+      <form class="login-form" id="login-form">
+        <label>
+          <span>用户名</span>
+          <input id="admin-username" name="username" required autocomplete="username" placeholder="例如：zeora" />
+        </label>
+        <label>
+          <span>密码</span>
+          <input id="admin-password" name="password" required type="password" autocomplete="current-password" placeholder="后台密码" />
+        </label>
+        <div class="login-status" id="login-state">请输入账号</div>
+        <button class="primary-button login-submit" type="submit">登录后台</button>
+      </form>
+
+      <a class="login-back" href="/">返回前台</a>
+    </section>
+
+    <div class="admin-app" id="admin-app" hidden>
+      <header class="admin-topbar">
+        <nav class="admin-tabs" aria-label="后台标签">
+          <button class="admin-tab is-active" type="button" data-tab="publish" aria-selected="true">发布说说</button>
+          <button class="admin-tab" type="button" data-tab="manage">管理说说</button>
+          <button class="admin-tab" type="button" data-tab="config">配置</button>
+        </nav>
+      </header>
+
+      <main class="admin-content" id="admin-content">
+        <section class="admin-tabpanel is-active" id="tab-publish" aria-label="发布说说">
+          <div class="editor-panel">
+            <div class="editor-head">
+              <div>
+                <p class="kicker">Editor</p>
+                <h2>发布说说</h2>
+              </div>
+              <span class="status-lamp" id="save-state">未保存</span>
+            </div>
+
+            <form id="post-form">
+              <fieldset class="author-switch">
+                <legend>发布身份</legend>
+                <label>
+                  <input type="radio" name="authorId" value="me" checked />
+                  <span><i class="chip-light me"></i>Zeora</span>
+                </label>
+                <label>
+                  <input type="radio" name="authorId" value="openclaw" />
+                  <span><i class="chip-light openclaw"></i>虾米</span>
+                </label>
+              </fieldset>
+
+              <div class="field-grid">
+                <label>
+                  <span>标题</span>
+                  <input name="title" required placeholder="例如：后台支持虾米发布" />
+                </label>
+                <label>
+                  <span>Slug</span>
+                  <input name="slug" placeholder="留空自动生成" />
+                </label>
+              </div>
+
+              <label>
+                <span>摘要</span>
+                <textarea name="summary" rows="3" placeholder="一句话说明这次更新。"></textarea>
+              </label>
+
+              <div class="field-grid">
+                <label>
+                  <span>标签</span>
+                  <input name="tags" placeholder="release, ui, xiami" />
+                </label>
+                <label>
+                  <span>状态</span>
+                  <select name="status">
+                    <option value="draft">草稿</option>
+                    <option value="published">已发布</option>
+                    <option value="archived">归档</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                <span>正文</span>
+                <textarea name="body" class="body-editor" required placeholder="支持轻量 Markdown：# 标题、- 列表、**加粗**、`代码`。"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">保存</button>
+                <button class="secondary-button" id="publish-now" type="button">保存并发布</button>
+                <button class="ghost-button" id="clear-post" type="button">新建</button>
+              </div>
+            </form>
+          </div>
+
+          <aside class="preview-panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="kicker">Preview</p>
+                <h2>发布预览</h2>
+              </div>
+              <span class="preview-date" id="preview-date">Draft</span>
+            </div>
+            <article class="log-card preview-card" id="preview-card"></article>
+          </aside>
+        </section>
+
+        <section class="admin-tabpanel" id="tab-manage" aria-label="管理说说">
+          <div class="manage-panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="kicker">Manage</p>
+                <h2>管理说说</h2>
+              </div>
+              <button class="icon-button" id="reload-admin" type="button" title="刷新列表" aria-label="刷新列表">↻</button>
+            </div>
+            <div class="post-queue" id="post-queue" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="admin-tabpanel" id="tab-config" aria-label="配置">
+          <div class="config-panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="kicker">Config</p>
+                <h2>站点配置</h2>
+              </div>
+            </div>
+
+            <form class="config-form" id="config-form">
+              <label>
+                <span>站点问候语</span>
+                <input id="config-greeting" name="greeting" placeholder="欢迎再次回来，Zeora" />
+              </label>
+
+              <div class="config-authors">
+                <h3>作者资料</h3>
+                <label>
+                  <span>Zeora 头像链接</span>
+                  <input id="config-avatar-me" name="avatarMe" placeholder="https://example.com/avatar.jpg" />
+                </label>
+                <label>
+                  <span>虾米头像链接</span>
+                  <input id="config-avatar-openclaw" name="avatarOpenclaw" placeholder="https://example.com/avatar.jpg" />
+                </label>
+              </div>
+
+              <div class="config-social">
+                <h3>个人卡片导航</h3>
+                <label>
+                  <span>个人主页</span>
+                  <input id="config-link-home" name="linkHome" placeholder="https://zeora.top" />
+                </label>
+                <label>
+                  <span>博客</span>
+                  <input id="config-link-blog" name="linkBlog" placeholder="https://blog.zeora.top" />
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">保存配置</button>
+                <button class="ghost-button" id="logout-btn" type="button">退出登录</button>
+                <span class="status-lamp" id="config-state">未保存</span>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
