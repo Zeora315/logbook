@@ -10,7 +10,7 @@
 
 ## 1. 上传代码到 GitHub
 
-1. 打开 GitHub，新建一个仓库，例如 `zeora-logbook`。
+1. 打开 GitHub，新建一个仓库，例如 `logbook`。
 2. 把项目文件推送到仓库。
 3. 确保不上传以下文件：
    - `node_modules/`
@@ -54,8 +54,11 @@ LOG_KV
 2. 点击 **Create application**。
 3. 选择 **Pages**。
 4. 点击 **Connect to Git**。
-5. 授权并选择你的 GitHub 仓库 `zeora-logbook`。
+5. 授权并选择你的 GitHub 仓库 `logbook`。
 6. 分支选择 `main` 或你实际使用的分支。
+7. Pages 项目名称建议填 `logbook`。
+
+> 这个项目的 `wrangler.jsonc` 已经写了 `"name": "logbook"`。Cloudflare Pages 的项目名称也必须是 `logbook`，否则 Wrangler v3.109.0+ / v4 会在构建后提示配置不一致，甚至自动尝试生成修复 PR。
 
 ## 4. 配置构建设置
 
@@ -67,14 +70,31 @@ LOG_KV
 | Build command | `npm run check` |
 | Build output directory | `public` |
 | Root directory | `/` |
+| Deploy command | `npx wrangler pages deploy public --project-name logbook` |
+| Non-production branch deploy command | `npx wrangler pages deploy public --project-name logbook` |
+| Version command / 版本命令 | `npx wrangler pages deploy public --project-name logbook` |
 
 **重要**：Cloudflare 检测到 `wrangler.jsonc` 后，可能会自动在 **Deploy command** 里填入 `npx wrangler deploy`。**这是错误的**，因为那是 Workers 项目的部署命令，会导致构建失败。
 
 这个项目是 **Cloudflare Pages**，必须用 Pages 的部署命令：
 
 ```txt
-npx wrangler pages deploy public
+npx wrangler pages deploy public --project-name logbook
 ```
+
+同时确认仓库里的 `wrangler.jsonc` 与 Cloudflare Pages 项目名一致：
+
+```jsonc
+{
+  "name": "logbook",
+  "pages_build_output_dir": "public"
+}
+```
+
+这里有两个容易混淆的名字：
+
+- `package.json` 里的 `"name": "zeora-logbook"` 只是 npm 包名，不影响 Cloudflare Pages 部署。
+- `wrangler.jsonc` 里的 `"name": "logbook"` 是 Cloudflare Pages 项目名，必须和 Cloudflare 控制台里的 Pages 项目名称一致。
 
 如果已经创建项目，可以按以下步骤修改：
 
@@ -83,14 +103,68 @@ npx wrangler pages deploy public
 3. 点击 **Configure**。
 4. 填写：
    - **构建命令**：`npm run check`
-   - **部署命令**：`npx wrangler pages deploy public`
-   - **非生产分支部署命令**：`npx wrangler pages deploy public`
+   - **部署命令**：`npx wrangler pages deploy public --project-name logbook`
+   - **非生产分支部署命令**：`npx wrangler pages deploy public --project-name logbook`
+   - **版本命令**：`npx wrangler pages deploy public --project-name logbook`
    - **路径**：`/`
 5. 点击 **更新**。
 
 然后点击 **Save and Deploy**。
 
-> 第一次部署会失败，因为还没有绑定 KV 和环境变量，继续下一步即可。
+> 如果还没有绑定 KV 或设置后台用户名密码，第一次部署可能会失败。先继续完成下面的 KV 和环境变量配置，再重新部署。
+
+### 如果提示 wrangler.jsonc 配置不一致
+
+如果部署日志里出现类似提示：
+
+```txt
+请更新您的存储库中的 wrangler.jsonc，以保持一致的设置
+// wrangler.jsonc
+"name": "logbook"
+```
+
+按下面检查：
+
+1. 打开 Cloudflare Pages 项目，确认项目名称是 `logbook`。
+2. 确认 `wrangler.jsonc` 里是：
+
+```jsonc
+"name": "logbook"
+```
+
+3. 确认 Pages 的部署命令是：
+
+```txt
+npx wrangler pages deploy public --project-name logbook
+```
+
+4. 如果 Cloudflare 控制台里还有 **版本命令**，也改成同一条命令。
+5. 提交并推送代码后重新部署。
+
+如果你想把 Pages 项目改成别的名字，也可以，但必须同时改三处：
+
+- Cloudflare Pages 项目名称。
+- `wrangler.jsonc` 里的 `"name"`。
+- 部署命令里的 `--project-name`。
+
+### 如果提示 Authentication error [code: 10000]
+
+Cloudflare 在构建环境使用 `CLOUDFLARE_API_TOKEN` 执行 `npx wrangler pages deploy public --project-name logbook`。如果这个 token 没有 **Cloudflare Pages:Edit** 权限，就会报：
+
+```txt
+✘ [ERROR] A request to the Cloudflare API (/accounts/.../pages/projects/...) failed.
+  Authentication error [code: 10000]
+```
+
+解决方法：
+
+1. 打开 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)。
+2. 找到当前使用的 token，点击 **Edit**。
+3. 添加权限：
+   - **Cloudflare Pages** → **Edit**
+   - **Account** → **Read**（如未添加）
+4. 保存 token。
+5. 回到 Pages 项目，重新部署一次。
 
 ## 5. 绑定 KV Namespace
 
@@ -188,3 +262,14 @@ TRUST_CF_ACCESS_HEADERS=true
 ### 部署提示 Build command 失败
 
 `npm run check` 只做语法检查，失败通常是因为 `package.json` 里的脚本语法写错，或 Node 版本不兼容。检查 Pages 构建日志即可定位。
+
+### 部署提示 KV namespace 不存在或 binding 错误
+
+`wrangler.jsonc` 里不能一直保留占位符：
+
+```jsonc
+"id": "replace-with-production-kv-namespace-id",
+"preview_id": "replace-with-preview-kv-namespace-id"
+```
+
+创建 KV 后，把 Wrangler 输出的真实 `id` 和 `preview_id` 填进去。或者在 Cloudflare Dashboard 的 **Settings** > **Functions** > **KV namespace bindings** 里绑定 `LOG_KV` 后，重新部署。
