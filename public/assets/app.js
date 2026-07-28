@@ -72,7 +72,6 @@ const calendarMonth = document.querySelector("#calendar-month");
 const calendarGrid = document.querySelector("#calendar-grid");
 const profileAvatarImg = document.querySelector("#profile-avatar-img");
 const profileName = document.querySelector("#profile-name");
-const profileBio = document.querySelector("#profile-bio");
 const drawerMedia = window.matchMedia("(max-width: 760px)");
 let noticeTimer = 0;
 
@@ -151,7 +150,6 @@ function applyNavLinks(links) {
 function initProfile() {
   const owner = AUTHORS[SITE.ownerId] || AUTHORS.me;
   if (profileName) profileName.textContent = owner.name;
-  if (profileBio) profileBio.textContent = owner.bio || AUTHORS.me.bio;
   if (profileAvatarImg) {
     profileAvatarImg.src = owner.avatar || "";
     profileAvatarImg.alt = owner.name;

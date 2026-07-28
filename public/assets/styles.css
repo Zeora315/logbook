@@ -252,10 +252,6 @@ a {
   color: #fff;
 }
 
-.left-rail .profile-bio {
-  color: rgba(255, 255, 255, 0.82);
-}
-
 .left-rail .profile-avatar {
   background: rgba(255, 255, 255, 0.46);
 }
@@ -338,27 +334,16 @@ a {
   width: 100%;
 }
 
-.profile-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-  text-align: left;
-}
-
 .profile-card h1 {
   margin: 0;
   color: #fff;
   font-size: 1.42rem;
   line-height: 1.2;
   letter-spacing: -0.02em;
-}
-
-.profile-bio {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.84rem;
-  line-height: 1.5;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-social {
