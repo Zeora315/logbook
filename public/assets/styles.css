@@ -512,16 +512,17 @@ h3 {
 .author-switch-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .author-switch {
-  display: grid;
-  justify-items: center;
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
   color: var(--ink);
-  font-weight: 850;
-  font-size: 0.92rem;
+  font-weight: 750;
+  font-size: 0.78rem;
   padding: 0.15rem;
   text-align: center;
   text-decoration: none;
@@ -529,10 +530,6 @@ h3 {
 }
 
 .author-switch-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 1.3rem;
   color: var(--ink-strong);
   line-height: 1.15;
 }
@@ -544,18 +541,16 @@ h3 {
 }
 
 .author-switch-avatar {
-  width: clamp(3.9rem, 5vw, 4.9rem);
+  width: clamp(4.2rem, 5.5vw, 5rem);
   aspect-ratio: 1;
-  border: 2px solid rgba(214, 218, 224, 0.95);
+  border: 1.5px solid var(--line-strong);
   border-radius: 50%;
-  padding: 0.35rem;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)) padding-box,
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(232, 218, 194, 0.72)) border-box;
+  padding: 0.2rem;
+  background: #fff;
   color: var(--author-color, var(--accent));
-  box-shadow: 0 8px 24px rgba(94, 73, 36, 0.08);
-  font-size: 1.12rem;
-  font-weight: 950;
+  box-shadow: 0 4px 14px rgba(94, 73, 36, 0.06);
+  font-size: 1.1rem;
+  font-weight: 900;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   overflow: hidden;
 }
@@ -573,14 +568,14 @@ h3 {
 }
 
 .author-switch-avatar > svg {
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .author-switch:hover .author-switch-avatar,
 .author-switch.is-active .author-switch-avatar {
-  border-color: var(--author-color, rgba(180, 143, 86, 0.78));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--author-color, #b48f56) 18%, transparent), 0 12px 28px rgba(94, 73, 36, 0.12);
+  border-color: var(--author-color, #b48f56);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--author-color, #b48f56) 15%, transparent);
   transform: translateY(-1px);
 }
 
