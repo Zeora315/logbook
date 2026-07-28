@@ -282,8 +282,8 @@ a {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: 7rem;
-  height: 7rem;
+  width: 6rem;
+  height: 6rem;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.22);
   padding: 0.35rem;
@@ -532,7 +532,7 @@ h3 {
 }
 
 .author-switch-avatar {
-  width: clamp(4.2rem, 5.5vw, 5rem);
+  width: clamp(3.6rem, 4.5vw, 4.2rem);
   aspect-ratio: 1;
   border: 1.5px solid var(--line-strong);
   border-radius: 50%;
@@ -540,7 +540,7 @@ h3 {
   background: #fff;
   color: var(--author-color, var(--accent));
   box-shadow: 0 4px 14px rgba(94, 73, 36, 0.06);
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 900;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   overflow: hidden;
