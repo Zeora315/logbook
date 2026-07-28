@@ -68,6 +68,20 @@ LOG_KV
 | Build output directory | `public` |
 | Root directory | `/` |
 
+**重要**：Cloudflare 检测到 `wrangler.jsonc` 后，可能会自动在 **Deploy command** 里填入 `npx wrangler deploy`。**这个字段必须留空**，因为 Pages 本身会在构建完成后自动部署，不需要额外执行 wrangler 命令。
+
+如果已经创建项目，可以按以下步骤修改：
+
+1. 进入 Pages 项目，点击顶部 **Settings**。
+2. 选择 **Build & deployment**。
+3. 点击 **Configure**。
+4. 填写：
+   - **构建命令**：`npm run check`
+   - **部署命令**：留空
+   - **非生产分支部署命令**：留空
+   - **路径**：`/`
+5. 点击 **更新**。
+
 然后点击 **Save and Deploy**。
 
 > 第一次部署会失败，因为还没有绑定 KV 和环境变量，继续下一步即可。
