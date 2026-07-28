@@ -72,24 +72,19 @@ npm run dev
 
 ## Cloudflare KV
 
-创建 production 和 preview KV namespace：
+在 Cloudflare Dashboard 创建 KV namespace，名称建议为：
 
-```bash
-npx wrangler kv namespace create LOG_KV
-npx wrangler kv namespace create LOG_KV --preview
+```txt
+LOG_KV
 ```
 
-把命令输出里的 `id` 和 `preview_id` 写入 `wrangler.jsonc`：
+然后到 Pages 项目的 **Settings** > **Functions** > **KV namespace bindings** 里添加绑定：
 
-```jsonc
-"kv_namespaces": [
-  {
-    "binding": "LOG_KV",
-    "id": "你的 production namespace id",
-    "preview_id": "你的 preview namespace id"
-  }
-]
-```
+| Variable name | KV namespace |
+| --- | --- |
+| `LOG_KV` | 选择刚创建的 `LOG_KV` |
+
+仓库里的 `wrangler.jsonc` 不写示例 KV ID，避免 Cloudflare Pages 部署时把占位符当成真实 ID 校验。
 
 ## 部署
 

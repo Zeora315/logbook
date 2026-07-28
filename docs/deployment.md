@@ -60,7 +60,7 @@ LOG_KV
 
 > 这个项目的 `wrangler.jsonc` 已经写了 `"name": "logbook"`。Cloudflare Pages 的项目名称也必须是 `logbook`，否则 Wrangler v3.109.0+ / v4 会在构建后提示配置不一致，甚至自动尝试生成修复 PR。
 
-> 一定要创建 **Pages** 项目，不要创建 **Worker** 项目。浏览器地址如果是 `/workers/services/view/logbook/...`，说明当前打开的是 Worker 项目；Pages 项目的部署才支持 `npx wrangler pages deploy public --project-name logbook`。如果误建成 Worker，可以保留或删除它，但还需要重新创建一个 Pages 项目。
+> 一定要创建 **Pages** 项目，不要创建 **Worker** 项目。浏览器地址如果是 `/workers/services/view/logbook/...`，说明当前打开的是 Worker 项目。这个仓库的 `public/` 和 `functions/` 会由 Pages 一起部署，不需要单独创建 Worker。
 
 ## 4. 配置构建设置
 
@@ -72,17 +72,8 @@ LOG_KV
 | Build command | `npm run check` |
 | Build output directory | `public` |
 | Root directory | `/` |
-| Deploy command | `npx wrangler pages deploy public --project-name logbook` |
-| Non-production branch deploy command | `npx wrangler pages deploy public --project-name logbook` |
-| Version command / 版本命令 | `npx wrangler pages deploy public --project-name logbook` |
 
-**重要**：Cloudflare 检测到 `wrangler.jsonc` 后，可能会自动在 **Deploy command** 里填入 `npx wrangler deploy`。**这是错误的**，因为那是 Workers 项目的部署命令，会导致构建失败。
-
-这个项目是 **Cloudflare Pages**，必须用 Pages 的部署命令：
-
-```txt
-npx wrangler pages deploy public --project-name logbook
-```
+Pages 的 Git 部署界面通常只要求 **Build command** 和 **Build output directory**。如果你现在看到的就是这两个输入框，这是正常的。
 
 同时确认仓库里的 `wrangler.jsonc` 与 Cloudflare Pages 项目名一致：
 
@@ -105,9 +96,7 @@ npx wrangler pages deploy public --project-name logbook
 3. 点击 **Configure**。
 4. 填写：
    - **构建命令**：`npm run check`
-   - **部署命令**：`npx wrangler pages deploy public --project-name logbook`
-   - **非生产分支部署命令**：`npx wrangler pages deploy public --project-name logbook`
-   - **版本命令**：`npx wrangler pages deploy public --project-name logbook`
+   - **构建输出目录**：`public`
    - **路径**：`/`
 5. 点击 **更新**。
 
@@ -134,24 +123,20 @@ npx wrangler pages deploy public --project-name logbook
 "name": "logbook"
 ```
 
-3. 确认 Pages 的部署命令是：
-
-```txt
-npx wrangler pages deploy public --project-name logbook
-```
-
-4. 如果 Cloudflare 控制台里还有 **版本命令**，也改成同一条命令。
-5. 提交并推送代码后重新部署。
+3. 确认 Pages 构建设置里：
+   - **构建命令**：`npm run check`
+   - **构建输出目录**：`public`
+4. 提交并推送代码后重新部署。
 
 如果你想把 Pages 项目改成别的名字，也可以，但必须同时改三处：
 
 - Cloudflare Pages 项目名称。
 - `wrangler.jsonc` 里的 `"name"`。
-- 部署命令里的 `--project-name`。
+- 本地手动部署命令里的 `--project-name`。
 
-### 如果提示 Authentication error [code: 10000]
+### 手动部署时提示 Authentication error [code: 10000]
 
-Cloudflare 在构建环境使用 `CLOUDFLARE_API_TOKEN` 执行 `npx wrangler pages deploy public --project-name logbook`。如果这个 token 没有 **Cloudflare Pages:Edit** 权限，就会报：
+如果你在本地或 Cloudflare 自定义构建流程里手动执行 `npx wrangler pages deploy public --project-name logbook`，Wrangler 会读取 `CLOUDFLARE_API_TOKEN`。如果这个 token 没有 **Cloudflare Pages:Edit** 权限，就会报：
 
 ```txt
 ✘ [ERROR] A request to the Cloudflare API (/accounts/.../pages/projects/...) failed.
@@ -165,7 +150,9 @@ It looks like you are authenticating Wrangler via a custom API token set in an e
 The API Token is read from the CLOUDFLARE_API_TOKEN environment variable.
 ```
 
-这里的 `CLOUDFLARE_API_TOKEN` 是 **构建部署用的 API Token**，不是后台登录用的 `ADMIN_USERNAME` / `ADMIN_PASSWORD`，也不是上面运行时 **变量和密钥** 表格里的普通变量。
+这里的 `CLOUDFLARE_API_TOKEN` 是 **Wrangler 手动部署用的 API Token**，不是后台登录用的 `ADMIN_USERNAME` / `ADMIN_PASSWORD`，也不是上面运行时 **变量和密钥** 表格里的普通变量。
+
+如果你使用的是标准 Pages Git 部署，而且页面只要求填写 **构建命令** 和 **构建输出目录**，通常不需要配置这个 token。
 
 解决方法一：修正当前构建 token
 
@@ -192,7 +179,7 @@ The API Token is read from the CLOUDFLARE_API_TOKEN environment variable.
 7. 回到 `logbook` 项目 **设置** > **构建** > **API 令牌**，把它换成新 token。
 8. 重新部署。
 
-如果之后不再报 `Authentication error`，但改成 KV 相关错误，再检查 `LOG_KV` 是否绑定到 Pages Functions，或 `wrangler.jsonc` 里的 KV `id` / `preview_id` 是否已换成真实值。
+如果之后不再报 `Authentication error`，但改成 KV 相关错误，再检查 `LOG_KV` 是否绑定到 Pages Functions。
 
 ## 5. 绑定 KV Namespace
 
@@ -311,7 +298,7 @@ If you are targeting an existing Pages project, verify that the project name is 
 3. 选择 **Pages**，再选择 **Connect to Git**。
 4. 选择 GitHub 仓库 `Zeora315/logbook`。
 5. Pages 项目名称填 `logbook`。
-6. 按第 4 节重新填写构建和部署命令。
+6. 按第 4 节重新填写构建设置。
 7. 重新绑定 `LOG_KV`，并设置 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 等环境变量。
 8. 重新部署。
 
@@ -319,15 +306,24 @@ If you are targeting an existing Pages project, verify that the project name is 
 
 - Cloudflare Pages 项目名称。
 - `wrangler.jsonc` 里的 `"name"`。
-- 部署命令里的 `--project-name`。
+- 本地手动部署命令里的 `--project-name`。
 
-### 部署提示 KV namespace 不存在或 binding 错误
+### 部署提示 Invalid KV namespace ID
 
-`wrangler.jsonc` 里不能一直保留占位符：
+如果构建日志里出现：
 
-```jsonc
-"id": "replace-with-production-kv-namespace-id",
-"preview_id": "replace-with-preview-kv-namespace-id"
+```txt
+Invalid KV namespace ID (replace-with-production-kv-namespace-id). Not a valid hex string.
 ```
 
-创建 KV 后，把 Wrangler 输出的真实 `id` 和 `preview_id` 填进去。或者在 Cloudflare Dashboard 的 **Settings** > **Functions** > **KV namespace bindings** 里绑定 `LOG_KV` 后，重新部署。
+说明仓库里的 `wrangler.jsonc` 还保留了示例占位符。Pages 会把它当成真实 KV ID 校验，所以部署会失败。
+
+推荐处理方式：
+
+1. 删除 `wrangler.jsonc` 里的 `kv_namespaces` 占位符配置。
+2. 在 Cloudflare Dashboard 的 **Pages 项目** > **Settings** > **Functions** > **KV namespace bindings** 里添加绑定：
+   - Variable name：`LOG_KV`
+   - KV namespace：选择你创建的 `LOG_KV`
+3. 重新部署。
+
+如果你想完全用 `wrangler.jsonc` 管理 KV，也可以保留 `kv_namespaces`，但必须把 `id` / `preview_id` 换成 Cloudflare 生成的真实十六进制 namespace ID，不能使用 `replace-with-...` 占位符。
