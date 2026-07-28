@@ -1,3 +1,9 @@
+const API_BASE = window.LOGBOOK_API_BASE || '';
+
+function apiUrl(path) {
+  return API_BASE + path;
+}
+
 const AUTHORS = {
   me: {
     id: "me",
@@ -167,7 +173,7 @@ async function loadAdminPosts({ fromLogin = false } = {}) {
 
   setSaveState("正在读取队列...", "busy");
   try {
-    const response = await fetch("/api/admin/posts", {
+    const response = await fetch(apiUrl("/api/admin/posts"), {
       headers: requestHeaders()
     });
     const payload = await response.json();
@@ -328,7 +334,7 @@ async function savePost() {
 
   setSaveState("正在保存...", "busy");
   try {
-    const response = await fetch(state.activeId ? `/api/admin/posts/${encodeURIComponent(state.activeId)}` : "/api/admin/posts", {
+    const response = await fetch(state.activeId ? apiUrl(`/api/admin/posts/${encodeURIComponent(state.activeId)}`) : apiUrl("/api/admin/posts"), {
       method: state.activeId ? "PUT" : "POST",
       headers: {
         ...requestHeaders(),

@@ -1,3 +1,9 @@
+const API_BASE = window.LOGBOOK_API_BASE || '';
+
+function apiUrl(path) {
+  return API_BASE + path;
+}
+
 const AUTHORS = {
   me: {
     id: "me",
@@ -84,7 +90,7 @@ function renderHero() {
 async function loadPosts() {
   setNotice("正在读取日志...", false);
   try {
-    const response = await fetch("/api/posts", { headers: { accept: "application/json" } });
+    const response = await fetch(apiUrl("/api/posts"), { headers: { accept: "application/json" } });
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     const payload = await response.json();
     state.posts = Array.isArray(payload.posts) ? payload.posts : [];

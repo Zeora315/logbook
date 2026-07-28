@@ -2,9 +2,5 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "logbook",
   "compatibility_date": "2026-07-26",
-  "pages_build_output_dir": "public",
-  "vars": {
-    "SITE_TITLE": "我的更新日志",
-    "SITE_DESCRIPTION": "记录 Zeora 和虾米的更新、发布与想法。"
-  }
+  "pages_build_output_dir": "public"
 }
