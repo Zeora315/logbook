@@ -8,6 +8,8 @@
 - 可视化后台：新建、编辑、预览、保存草稿、发布、归档。
 - 两个发布身份：`Zeora` 和 `虾米`，分别有独立颜色和 byline。内部作者 id 仍是 `me` 和 `openclaw`，方便兼容已有 KV 数据。
 - Cloudflare KV 存储：正文、slug、索引、revision、audit log。
+
+<!-- Deploy trigger -->
 - JSON Feed：`/api/feed.json`。
 - 双安全模式：用户名/密码登录后台，也可叠加 Cloudflare Access 保护后台路径。
 
