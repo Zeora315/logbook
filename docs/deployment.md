@@ -68,7 +68,13 @@ LOG_KV
 | Build output directory | `public` |
 | Root directory | `/` |
 
-**重要**：Cloudflare 检测到 `wrangler.jsonc` 后，可能会自动在 **Deploy command** 里填入 `npx wrangler deploy`。**这个字段必须留空**，因为 Pages 本身会在构建完成后自动部署，不需要额外执行 wrangler 命令。
+**重要**：Cloudflare 检测到 `wrangler.jsonc` 后，可能会自动在 **Deploy command** 里填入 `npx wrangler deploy`。**这是错误的**，因为那是 Workers 项目的部署命令，会导致构建失败。
+
+这个项目是 **Cloudflare Pages**，必须用 Pages 的部署命令：
+
+```txt
+npx wrangler pages deploy public
+```
 
 如果已经创建项目，可以按以下步骤修改：
 
@@ -77,8 +83,8 @@ LOG_KV
 3. 点击 **Configure**。
 4. 填写：
    - **构建命令**：`npm run check`
-   - **部署命令**：留空
-   - **非生产分支部署命令**：留空
+   - **部署命令**：`npx wrangler pages deploy public`
+   - **非生产分支部署命令**：`npx wrangler pages deploy public`
    - **路径**：`/`
 5. 点击 **更新**。
 

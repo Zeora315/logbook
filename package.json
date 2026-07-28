@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler pages dev public --compatibility-date=2026-07-26",
     "check": "node --check public/assets/app.js && node --check public/assets/admin.js && node --check functions/_lib/changelog.js && node --check functions/api/posts.js && node --check functions/api/feed.json.js && node --check functions/api/admin/posts.js && node --check functions/api/admin/posts/[id].js",
-    "deploy": "echo 'Cloudflare Pages deploys automatically on git push.'"
+    "deploy": "npx wrangler pages deploy public"
   },
   "devDependencies": {
     "wrangler": "^4.25.0"
