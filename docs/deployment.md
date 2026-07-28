@@ -60,6 +60,8 @@ LOG_KV
 
 > 这个项目的 `wrangler.jsonc` 已经写了 `"name": "logbook"`。Cloudflare Pages 的项目名称也必须是 `logbook`，否则 Wrangler v3.109.0+ / v4 会在构建后提示配置不一致，甚至自动尝试生成修复 PR。
 
+> 一定要创建 **Pages** 项目，不要创建 **Worker** 项目。浏览器地址如果是 `/workers/services/view/logbook/...`，说明当前打开的是 Worker 项目；Pages 项目的部署才支持 `npx wrangler pages deploy public --project-name logbook`。如果误建成 Worker，可以保留或删除它，但还需要重新创建一个 Pages 项目。
+
 ## 4. 配置构建设置
 
 在 **Set up builds and deployments** 页面填写：
@@ -288,6 +290,36 @@ TRUST_CF_ACCESS_HEADERS=true
 ### 部署提示 Build command 失败
 
 `npm run check` 只做语法检查，失败通常是因为 `package.json` 里的脚本语法写错，或 Node 版本不兼容。检查 Pages 构建日志即可定位。
+
+### 部署提示 Pages project "logbook" does not exist
+
+如果构建日志里出现：
+
+```txt
+The Pages project "logbook" does not exist.
+If you are targeting an existing Pages project, verify that the project name is correct and that it exists in your account.
+```
+
+说明当前账号里没有名为 `logbook` 的 **Pages 项目**。常见原因是误创建了 **Worker 项目**。Cloudflare 控制台里 Worker 和 Pages 都在 **Workers 和 Pages** 入口下，但项目类型不同。
+
+按下面检查：
+
+1. 看浏览器地址：
+   - 如果包含 `/workers/services/view/logbook/...`，这是 Worker 项目。
+   - Pages 项目应在 Pages 项目列表里，部署域名通常是 `项目名.pages.dev`。
+2. 进入 **Workers 和 Pages**，点击 **Create application**。
+3. 选择 **Pages**，再选择 **Connect to Git**。
+4. 选择 GitHub 仓库 `Zeora315/logbook`。
+5. Pages 项目名称填 `logbook`。
+6. 按第 4 节重新填写构建和部署命令。
+7. 重新绑定 `LOG_KV`，并设置 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 等环境变量。
+8. 重新部署。
+
+如果 Cloudflare 不允许再创建名为 `logbook` 的 Pages 项目，可以改用另一个 Pages 项目名，例如 `zeora-logbook`，但必须同步修改三处：
+
+- Cloudflare Pages 项目名称。
+- `wrangler.jsonc` 里的 `"name"`。
+- 部署命令里的 `--project-name`。
 
 ### 部署提示 KV namespace 不存在或 binding 错误
 
