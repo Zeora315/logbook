@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="index" />
     <title>作者 - 我的更新日志</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=3" />
-    <script src="/config.js?v=3"></script>
-    <script type="module" src="/assets/app.js?v=3"></script>
-    <script type="module" src="/assets/author.js?v=3"></script>
+    <link rel="stylesheet" href="/assets/styles.css?v=14" />
+    <script src="/config.js?v=14"></script>
+    <script type="module" src="/assets/app.js?v=14"></script>
+    <script type="module" src="/assets/author.js?v=14"></script>
   </head>
   <body data-page="author">
     <a class="skip-link" href="#author-posts">跳到发布列表</a>
@@ -17,7 +17,7 @@
       <aside class="left-rail" id="left-rail" aria-label="左侧边栏">
         <section class="rail-card profile-card" aria-labelledby="profile-name">
           <span class="profile-avatar" aria-label="Zeora 的头像">
-            <img id="profile-avatar-img" src="" alt="Zeora" />
+            <img id="profile-avatar-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Zeora" />
             <span class="profile-status" aria-hidden="true"></span>
           </span>
           <h1 id="profile-name">Zeora</h1>
@@ -62,7 +62,6 @@
       </aside>
 
       <section class="log-stage" aria-labelledby="author-posts-title">
-        <div class="notice" id="author-notice" hidden></div>
         <section class="author-hero rail-card" id="author-hero" aria-label="作者资料">
           <span class="author-avatar" id="author-avatar"></span>
           <div class="author-meta">
@@ -71,7 +70,13 @@
             <span class="author-count" id="author-count">0 篇更新</span>
           </div>
         </section>
-        <div class="timeline" id="author-posts" aria-live="polite"></div>
+        <div class="timeline" id="author-posts" aria-live="polite">
+          <div class="skeleton-card" aria-hidden="true">
+            <div class="skeleton-row"><span class="skeleton-avatar"></span><span class="skeleton-line skeleton-w-35"></span></div>
+            <span class="skeleton-line skeleton-w-65"></span>
+            <span class="skeleton-line skeleton-w-85"></span>
+          </div>
+        </div>
       </section>
 
       <aside class="right-rail" id="right-rail" aria-label="右侧边栏">
@@ -121,22 +126,22 @@
         </section>
       </aside>
 
-      <button class="drawer-backdrop" id="drawer-backdrop" type="button" aria-label="关闭侧边栏" hidden></button>
-
-      <div class="float-actions" id="float-actions" aria-label="移动端边栏操作">
-        <button class="float-pill" id="open-left" type="button" aria-label="打开左侧边栏">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-            <path d="M9 3v18"></path>
-          </svg>
-        </button>
-        <button class="float-pill" id="open-right" type="button" aria-label="展开右侧边栏">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-            <path d="M15 3v18"></path>
-          </svg>
-        </button>
-      </div>
     </main>
+    <button class="drawer-backdrop" id="drawer-backdrop" type="button" aria-label="关闭侧边栏" hidden></button>
+    <div class="float-actions" id="float-actions" aria-label="移动端边栏操作">
+      <button class="float-pill" id="open-left" type="button" aria-label="打开左侧边栏">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <path d="M9 3v18"></path>
+        </svg>
+      </button>
+      <button class="float-pill" id="open-right" type="button" aria-label="展开右侧边栏">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <path d="M15 3v18"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="notice" id="author-notice" hidden></div>
   </body>
 </html>

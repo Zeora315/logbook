@@ -1,6 +1,7 @@
 import {
   adminPost,
   archivePost,
+  deletePost,
   getPost,
   handleError,
   json,
@@ -40,8 +41,8 @@ export async function onRequestPut(context) {
 export async function onRequestDelete(context) {
   try {
     const admin = await requireAdmin(context);
-    const post = await archivePost(context.env.LOG_KV, context.params.id, admin);
-    return json({ post: adminPost(post) });
+    const post = await deletePost(context.env.LOG_KV, context.params.id, admin);
+    return json({ post: adminPost(post), deleted: true });
   } catch (error) {
     return handleError(error);
   }

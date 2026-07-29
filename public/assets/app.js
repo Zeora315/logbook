@@ -73,8 +73,8 @@ const calendarGrid = document.querySelector("#calendar-grid");
 const profileAvatarImg = document.querySelector("#profile-avatar-img");
 const profileName = document.querySelector("#profile-name");
 const drawerMedia = window.matchMedia("(max-width: 760px)");
-const NOTICE_MIN_VISIBLE_MS = 900;
-const NOTICE_HIDE_MS = 420;
+const NOTICE_MIN_VISIBLE_MS = 3200;
+const NOTICE_HIDE_MS = 650;
 let noticeTimer = 0;
 let noticeShownAt = 0;
 
@@ -250,19 +250,39 @@ function render() {
     return;
   }
 
-  stream.innerHTML = posts.map(renderPostCard).join("");
+  stream.innerHTML = posts.map((post, index) => renderPostCard(post, index)).join("");
+  animateCards(stream);
 }
 
-function renderPostCard(post) {
+function animateCards(container) {
+  const cards = container.querySelectorAll(".log-card");
+  cards.forEach((card, index) => {
+    const delay = 180 + index * 130;
+    card.style.transition = "opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)";
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        card.style.opacity = "1";
+        card.style.transform = "translateY(0)";
+        setTimeout(() => {
+          card.style.transition = "";
+          card.style.opacity = "";
+          card.style.transform = "";
+        }, 640);
+      }, delay);
+    });
+  });
+}
+
+function renderPostCard(post, index) {
   const author = AUTHORS[post.authorId] || AUTHORS.me;
   const time = formatTimeAgo(post.publishedAt || post.updatedAt || post.createdAt);
-  const tags = (post.tags || []).slice(0, 1).map((tag) => `<span class="tag-pill">#${escapeHtml(tag)}</span>`).join("");
+  const tags = (post.tags || []).slice(0, 1).map((tag) => `<a class="tag-pill" href="/tag.html?tag=${encodeURIComponent(tag)}">#${escapeHtml(tag)}</a>`).join("");
   const avatarHtml = author.avatar
     ? `<img class="log-avatar" src="${escapeAttribute(author.avatar)}" alt="${escapeHtml(author.name)}" onerror="this.replaceWith(this.nextElementSibling);this.remove()" /><span class="initials" hidden>${escapeHtml(author.name.slice(0, 1))}</span>`
     : `<span class="initials">${escapeHtml(author.name.slice(0, 1))}</span>`;
 
   return `
-    <article class="log-card" id="${escapeAttribute(post.slug || post.id)}" style="--author-color: ${author.color}">
+    <article class="log-card" id="${escapeAttribute(post.slug || post.id)}" style="--author-color: ${author.color}; opacity: 0; transform: translateY(14px);">
       <div class="log-card-inner">
         <header class="log-header">
           <a class="log-author" href="/author.html?id=${escapeAttribute(author.id)}">
@@ -425,7 +445,7 @@ function setNotice(message, autoHide) {
   });
   noticeTimer = window.setTimeout(() => {
     hideNotice();
-  }, Math.max(autoHide ? 1800 : 5000, NOTICE_MIN_VISIBLE_MS));
+  }, autoHide ? NOTICE_MIN_VISIBLE_MS : 5600);
 }
 
 function hideNotice() {

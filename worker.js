@@ -2,6 +2,7 @@ import {
   AUTHORS,
   adminPost,
   archivePost,
+  deletePost,
   getFeed,
   getPost,
   handleError,
@@ -153,8 +154,8 @@ async function handleAdminUpdate(context, postId, corsHeaders) {
 
 async function handleAdminDelete(context, postId, corsHeaders) {
   const admin = await requireAdmin(context);
-  const post = await archivePost(context.env.LOG_KV, postId, admin);
-  return json({ post: adminPost(post) }, { headers: corsHeaders });
+  const post = await deletePost(context.env.LOG_KV, postId, admin);
+  return json({ post: adminPost(post), deleted: true }, { headers: corsHeaders });
 }
 
 function clampNumber(value, min, max, fallback) {

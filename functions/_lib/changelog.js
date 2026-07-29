@@ -95,8 +95,16 @@ export async function requireAdmin(context) {
 
 export async function listPosts(kv, options = {}) {
   assertKv(kv);
-  const ids = await getIndexIds(kv, options.publishedOnly ? INDEX_PUBLISHED : INDEX_ADMIN);
-  const posts = await getPostsByIds(kv, ids);
+  const indexKey = options.publishedOnly ? INDEX_PUBLISHED : INDEX_ADMIN;
+  const ids = await getIndexIds(kv, indexKey);
+  const indexedPosts = await getPostsByIds(kv, ids);
+  const storedPosts = await listStoredPosts(kv);
+  const posts = mergePosts(storedPosts, indexedPosts);
+
+  if (options.repairIndexes !== false) {
+    await repairIndexesIfNeeded(kv, posts);
+  }
+
   const filtered = posts
     .filter((post) => !options.publishedOnly || post.status === "published")
     .filter((post) => !options.authorId || post.authorId === options.authorId)
@@ -157,6 +165,7 @@ export async function savePost(kv, input, context = {}) {
 
   writes.push(putJson(kv, keyPost(id), post));
   writes.push(kv.put(keySlug(slug), id));
+  writes.push(kv.delete(keyDeleted(id)));
   writes.push(
     putJson(kv, `audit:${Date.now()}:${id}`, {
       id,
@@ -184,6 +193,36 @@ export async function archivePost(kv, id, context = {}) {
     },
     context
   );
+}
+
+export async function deletePost(kv, id, context = {}) {
+  assertKv(kv);
+  const existing = await getPost(kv, id);
+  const now = new Date().toISOString();
+
+  await Promise.all([
+    putJson(kv, `post:${id}:rev:${Date.now()}`, existing),
+    kv.delete(keyPost(id)),
+    existing.slug ? kv.delete(keySlug(existing.slug)) : Promise.resolve(),
+    putJson(kv, keyDeleted(id), {
+      id,
+      slug: existing.slug || "",
+      subject: context.subject || "unknown",
+      at: now
+    }),
+    putJson(kv, `audit:${Date.now()}:${id}`, {
+      id,
+      action: "delete",
+      subject: context.subject || "unknown",
+      fromStatus: existing.status || null,
+      toStatus: "deleted",
+      at: now
+    })
+  ]);
+
+  const remainingPosts = (await listStoredPosts(kv)).filter((post) => post.id !== id).sort(sortPosts);
+  await writeIndexes(kv, remainingPosts);
+  return existing;
 }
 
 export async function getFeed(kv, site = {}) {
@@ -257,9 +296,27 @@ async function getPostsByIds(kv, ids) {
 }
 
 async function rebuildIndexes(kv, changedId) {
-  const currentIds = await getIndexIds(kv, INDEX_ADMIN);
-  const ids = [...new Set([...currentIds, changedId])].filter(Boolean);
-  const posts = (await getPostsByIds(kv, ids)).sort(sortPosts);
+  const storedPosts = await listStoredPosts(kv);
+  const changedPost = changedId ? await getJson(kv, keyPost(changedId)) : null;
+  const posts = mergePosts(storedPosts, changedPost ? [changedPost] : []).sort(sortPosts);
+
+  await writeIndexes(kv, posts);
+}
+
+async function repairIndexesIfNeeded(kv, posts) {
+  const sorted = [...posts].sort(sortPosts);
+  const [adminIds, publishedIds] = await Promise.all([
+    getIndexIds(kv, INDEX_ADMIN),
+    getIndexIds(kv, INDEX_PUBLISHED)
+  ]);
+  const nextAdminIds = sorted.map((post) => post.id);
+  const nextPublishedIds = sorted.filter((post) => post.status === "published").map((post) => post.id);
+
+  if (sameIds(adminIds, nextAdminIds) && sameIds(publishedIds, nextPublishedIds)) return;
+  await writeIndexes(kv, sorted);
+}
+
+async function writeIndexes(kv, posts) {
   const published = posts.filter((post) => post.status === "published");
 
   await Promise.all([
@@ -274,6 +331,44 @@ async function rebuildIndexes(kv, changedId) {
     ),
     ...monthEntries(published).map(([month, monthIds]) => putJson(kv, `index:published:${month}`, monthIds))
   ]);
+}
+
+async function listStoredPosts(kv) {
+  const posts = [];
+  let cursor;
+
+  do {
+    const result = await kv.list({ prefix: "post:", cursor });
+    const keys = (result.keys || [])
+      .map((item) => item.name)
+      .filter((name) => /^post:[^:]+$/.test(name));
+    const pagePosts = await Promise.all(keys.map((key) => getStoredPost(kv, key)));
+    posts.push(...pagePosts.filter(Boolean));
+    cursor = result.cursor;
+    if (result.list_complete) break;
+  } while (cursor);
+
+  return posts;
+}
+
+async function getStoredPost(kv, key) {
+  const post = await getJson(kv, key);
+  if (!post?.id) return null;
+  const deleted = await kv.get(keyDeleted(post.id));
+  return deleted ? null : post;
+}
+
+function mergePosts(...groups) {
+  const map = new Map();
+  groups.flat().filter(Boolean).forEach((post) => {
+    map.set(post.id, post);
+  });
+  return [...map.values()];
+}
+
+function sameIds(left, right) {
+  if (left.length !== right.length) return false;
+  return left.every((id, index) => id === right[index]);
 }
 
 function monthEntries(posts) {
@@ -318,6 +413,10 @@ function keyPost(id) {
 
 function keySlug(slug) {
   return `slug:${slug}`;
+}
+
+function keyDeleted(id) {
+  return `deleted:${id}`;
 }
 
 function sortPosts(a, b) {

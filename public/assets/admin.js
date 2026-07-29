@@ -252,6 +252,7 @@ function renderQueue(errorMessage = "") {
           <div class="queue-item-actions">
             <button class="queue-edit" type="button" data-id="${escapeAttribute(post.id)}">编辑</button>
             ${post.status !== "archived" ? `<button class="queue-archive" type="button" data-id="${escapeAttribute(post.id)}">归档</button>` : ""}
+            <button class="queue-delete" type="button" data-id="${escapeAttribute(post.id)}">删除</button>
           </div>
         </div>
       `;
@@ -264,6 +265,8 @@ function renderQueue(errorMessage = "") {
       const id = el.dataset.id;
       if (el.classList.contains("queue-archive")) {
         archiveById(id);
+      } else if (el.classList.contains("queue-delete")) {
+        deleteById(id);
       } else {
         selectPost(id);
         switchTab("publish");
@@ -278,6 +281,34 @@ async function archiveById(id) {
   state.activeId = id;
   writeForm({ ...post, status: "archived" });
   await savePost();
+}
+
+async function deleteById(id) {
+  const post = state.posts.find((item) => item.id === id);
+  if (!post) return;
+  const ok = window.confirm(`确定要删除《${post.title || "未命名日志"}》吗？删除后不会再出现在后台和前台。`);
+  if (!ok) return;
+
+  setSaveState("正在删除...", "busy");
+  try {
+    const response = await fetch(apiUrl(`/api/admin/posts/${encodeURIComponent(id)}`), {
+      method: "DELETE",
+      headers: requestHeaders()
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
+
+    if (state.activeId === id) {
+      state.activeId = "";
+      writeForm(EMPTY_POST);
+      renderPreview(EMPTY_POST);
+    }
+    await loadAdminPosts();
+    setSaveState("已删除", "ok");
+  } catch (error) {
+    const message = error instanceof SyntaxError ? "静态预览不能删除，部署到 Cloudflare 后可用。" : `删除失败：${error.message}`;
+    setSaveState(message, "error");
+  }
 }
 
 function selectPost(id) {
