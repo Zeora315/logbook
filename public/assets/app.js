@@ -73,7 +73,10 @@ const calendarGrid = document.querySelector("#calendar-grid");
 const profileAvatarImg = document.querySelector("#profile-avatar-img");
 const profileName = document.querySelector("#profile-name");
 const drawerMedia = window.matchMedia("(max-width: 760px)");
+const NOTICE_MIN_VISIBLE_MS = 900;
+const NOTICE_HIDE_MS = 420;
 let noticeTimer = 0;
+let noticeShownAt = 0;
 
 openLeftBtn?.addEventListener("click", () => openDrawer("left"));
 openRightBtn?.addEventListener("click", () => openDrawer("right"));
@@ -190,6 +193,10 @@ function renderAuthorSwitchAvatars() {
   document.querySelectorAll("[data-author-avatar]").forEach((avatar) => {
     const author = AUTHORS[avatar.dataset.authorAvatar];
     if (!author) return;
+
+    const item = avatar.closest(".author-switch");
+    const label = item?.querySelector(".author-switch-label");
+    if (label) label.textContent = author.name;
 
     avatar.style.setProperty("--author-color", author.color);
     avatar.textContent = "";
@@ -403,16 +410,34 @@ function setNotice(message, autoHide) {
   if (!notice) return;
   window.clearTimeout(noticeTimer);
   if (!message) {
-    notice.hidden = true;
-    notice.textContent = "";
+    const visibleFor = Date.now() - noticeShownAt;
+    const remaining = Math.max(0, NOTICE_MIN_VISIBLE_MS - visibleFor);
+    noticeTimer = window.setTimeout(hideNotice, remaining);
     return;
   }
+
+  noticeShownAt = Date.now();
+  notice.classList.remove("is-leaving");
   notice.hidden = false;
   notice.textContent = message;
+  window.requestAnimationFrame(() => {
+    notice.classList.add("is-visible");
+  });
   noticeTimer = window.setTimeout(() => {
+    hideNotice();
+  }, Math.max(autoHide ? 1800 : 5000, NOTICE_MIN_VISIBLE_MS));
+}
+
+function hideNotice() {
+  if (!notice || notice.hidden) return;
+  notice.classList.remove("is-visible");
+  notice.classList.add("is-leaving");
+  window.setTimeout(() => {
+    if (notice.classList.contains("is-visible")) return;
     notice.hidden = true;
     notice.textContent = "";
-  }, autoHide ? 1800 : 5000);
+    notice.classList.remove("is-leaving");
+  }, NOTICE_HIDE_MS);
 }
 
 function formatTimeAgo(value) {
