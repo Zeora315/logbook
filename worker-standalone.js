@@ -96,8 +96,13 @@ async function requireAdmin(context) {
 
 async function listPosts(kv, options = {}) {
   assertKv(kv);
-  // 关键修复：始终扫描 KV 中真实存储的 post，不依赖可能过时的索引
-  let posts = await listStoredPosts(kv);
+  // KV list 和索引都可能短暂滞后；合并两边，避免连续发布时旧内容被“挤掉”。
+  const [storedPosts, indexIds] = await Promise.all([
+    listStoredPosts(kv),
+    getIndexIds(kv, options.publishedOnly ? INDEX_PUBLISHED : INDEX_ADMIN)
+  ]);
+  const indexedPosts = await getPostsByIds(kv, indexIds);
+  const posts = mergePosts(indexedPosts, storedPosts);
 
   if (options.repair === true) {
     await repairIndexesIfNeeded(kv, posts);
@@ -222,8 +227,16 @@ async function deletePost(kv, id, context = {}) {
     })
   ]);
 
-  // 从真实存储的数据重建索引（排除已删除）
-  const remainingPosts = (await listStoredPosts(kv)).sort(sortPosts);
+  // 从扫描结果 + 旧索引重建索引，并显式排除刚删除的 id
+  const [storedPosts, adminIds, publishedIds] = await Promise.all([
+    listStoredPosts(kv),
+    getIndexIds(kv, INDEX_ADMIN),
+    getIndexIds(kv, INDEX_PUBLISHED)
+  ]);
+  const indexedPosts = await getPostsByIds(kv, [...adminIds, ...publishedIds]);
+  const remainingPosts = mergePosts(indexedPosts, storedPosts)
+    .filter((post) => post.id !== id)
+    .sort(sortPosts);
   await writeIndexes(kv, remainingPosts);
   return existing;
 }
@@ -491,7 +504,7 @@ async function getIndexIds(kv, key) {
 
 async function getPostsByIds(kv, ids) {
   const uniqueIds = [...new Set(ids)];
-  const posts = await Promise.all(uniqueIds.map((id) => getJson(kv, keyPost(id))));
+  const posts = await Promise.all(uniqueIds.map((id) => getStoredPost(kv, keyPost(id))));
   return posts.filter(Boolean);
 }
 
@@ -521,10 +534,16 @@ async function getStoredPost(kv, key) {
 }
 
 async function rebuildIndexes(kv, changedId) {
-  const storedPosts = await listStoredPosts(kv);
-  const changedPost = changedId ? await getJson(kv, keyPost(changedId)) : null;
-  // 合并：存储的 post 优先，但包含刚保存但 KV list 尚未同步的那条
-  const posts = mergePosts(storedPosts, changedPost ? [changedPost] : []).sort(sortPosts);
+  const [storedPosts, adminIds, publishedIds] = await Promise.all([
+    listStoredPosts(kv),
+    getIndexIds(kv, INDEX_ADMIN),
+    getIndexIds(kv, INDEX_PUBLISHED)
+  ]);
+  const [indexedPosts, changedPost] = await Promise.all([
+    getPostsByIds(kv, [...adminIds, ...publishedIds]),
+    changedId ? getJson(kv, keyPost(changedId)) : null
+  ]);
+  const posts = mergePosts(indexedPosts, storedPosts, changedPost ? [changedPost] : []).sort(sortPosts);
   await writeIndexes(kv, posts);
 }
 
@@ -648,7 +667,7 @@ function normalizeAttachments(value) {
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
     const url = cleanText(item.url);
-    if (!url || !/^https?:\/\//i.test(url)) continue;
+    if (!url || !isAllowedAttachmentUrl(url)) continue;
     if (seen.has(url)) continue;
     seen.add(url);
     const kind = item.kind === "image" || /^image\//i.test(item.type || "") ? "image" : "file";
@@ -662,6 +681,10 @@ function normalizeAttachments(value) {
     });
   }
   return out.slice(0, 32);
+}
+
+function isAllowedAttachmentUrl(url) {
+  return /^https?:\/\//i.test(url) || url.startsWith("/api/files/");
 }
 
 function safeEqual(left, right) {
@@ -832,6 +855,7 @@ async function handleAdminDelete(context, postId, corsHeaders) {
 }
 
 function clampNumber(value, min, max, fallback) {
+  if (value === null || value === undefined || value === "") return fallback;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(parsed)));

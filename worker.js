@@ -167,7 +167,7 @@ async function handleGetRss(request, env, corsHeaders) {
 
 async function handleAdminList(context, corsHeaders) {
   await requireAdmin(context);
-  const posts = await listPosts(context.env.LOG_KV);
+  const posts = await listPosts(context.env.LOG_KV, { repair: true });
   return json(
     {
       posts: posts.map(adminPost),
@@ -204,6 +204,7 @@ async function handleAdminDelete(context, postId, corsHeaders) {
 }
 
 function clampNumber(value, min, max, fallback) {
+  if (value === null || value === undefined || value === "") return fallback;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(parsed)));

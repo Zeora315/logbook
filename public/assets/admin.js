@@ -75,6 +75,7 @@ const CONFIG_KEYS = {
 const state = {
   posts: [],
   activeId: "",
+  deletedIds: new Set(),
   dirty: false,
   authenticated: false
 };
@@ -202,7 +203,9 @@ async function loadAdminPosts({ fromLogin = false } = {}) {
       error.status = response.status;
       throw error;
     }
-    state.posts = Array.isArray(payload.posts) ? payload.posts : [];
+    state.posts = Array.isArray(payload.posts)
+      ? payload.posts.filter((post) => !state.deletedIds.has(post.id))
+      : [];
     state.authenticated = true;
     setAdminVisible(true);
     renderQueue();
@@ -343,11 +346,14 @@ async function deleteById(id, button) {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
 
+    state.deletedIds.add(id);
+    state.posts = state.posts.filter((item) => item.id !== id);
     if (state.activeId === id) {
       state.activeId = "";
       writeForm(EMPTY_POST);
       renderPreview(EMPTY_POST);
     }
+    renderQueue();
     await loadAdminPosts();
     setSaveState("已删除", "ok");
   } catch (error) {
@@ -375,9 +381,9 @@ function selectPost(id) {
   setSaveState(id ? "已载入" : "新草稿", "ok");
 }
 
-function publishNow() {
+async function publishNow() {
   form.elements.status.value = "published";
-  savePost();
+  await savePost();
 }
 
 // 发布当前说说后立即新建一条空白草稿，便于连续发布多条而不互相覆盖
@@ -554,10 +560,12 @@ async function savePost() {
     return false;
   }
 
+  const wasNew = !state.activeId;
+  const endpoint = wasNew ? apiUrl("/api/admin/posts") : apiUrl(`/api/admin/posts/${encodeURIComponent(state.activeId)}`);
   setSaveState("正在保存...", "busy");
   try {
-    const response = await fetch(state.activeId ? apiUrl(`/api/admin/posts/${encodeURIComponent(state.activeId)}`) : apiUrl("/api/admin/posts"), {
-      method: state.activeId ? "PUT" : "POST",
+    const response = await fetch(endpoint, {
+      method: wasNew ? "POST" : "PUT",
       headers: {
         ...requestHeaders(),
         "content-type": "application/json"
@@ -567,9 +575,17 @@ async function savePost() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
 
-    state.activeId = payload.post.id;
+    state.deletedIds.delete(payload.post.id);
     state.dirty = false;
     await loadAdminPosts();
+
+    if (wasNew) {
+      selectPost("");
+      setSaveState("已保存，新草稿已准备好", "ok");
+      return true;
+    }
+
+    state.activeId = payload.post.id;
     const saved = state.posts.find((item) => item.id === state.activeId) || payload.post;
     editorLinks = JSON.parse(JSON.stringify(saved.links || []));
     editorAttachments = JSON.parse(JSON.stringify(saved.attachments || []));
@@ -624,9 +640,15 @@ function renderPreviewAttachments(post) {
   const images = items.filter((a) => a.kind === "image" || /^image\//i.test(a.type || ""));
   const files = items.filter((a) => !(a.kind === "image" || /^image\//i.test(a.type || "")));
   let html = "";
-  if (images.length) html += `<div class="log-gallery">${images.map((a) => `<a class="log-gallery-item" href="${escapeAttribute(a.url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeAttribute(a.url)}" alt="${escapeHtml(a.alt || a.name || "")}" loading="lazy" /></a>`).join("")}</div>`;
-  if (files.length) html += `<div class="log-files">${files.map((a) => `<a class="log-file" href="${escapeAttribute(a.url)}" target="_blank" rel="noopener noreferrer">📄 ${escapeHtml(a.name || "附件")}</a>`).join("")}</div>`;
+  if (images.length) html += `<div class="log-gallery">${images.map((a) => `<a class="log-gallery-item" href="${escapeAttribute(resolveAssetUrl(a.url))}" target="_blank" rel="noopener noreferrer"><img src="${escapeAttribute(resolveAssetUrl(a.url))}" alt="${escapeHtml(a.alt || a.name || "")}" loading="lazy" /></a>`).join("")}</div>`;
+  if (files.length) html += `<div class="log-files">${files.map((a) => `<a class="log-file" href="${escapeAttribute(resolveAssetUrl(a.url))}" target="_blank" rel="noopener noreferrer">📄 ${escapeHtml(a.name || "附件")}</a>`).join("")}</div>`;
   return html ? `<div class="log-attachments"><span class="log-attachments-label">附件</span>${html}</div>` : "";
+}
+
+function resolveAssetUrl(url) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return apiUrl(url);
 }
 
 function requestHeaders() {
