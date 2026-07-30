@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler pages dev public --compatibility-date=2026-07-26",
     "dev:worker": "wrangler dev --config wrangler.worker.jsonc",
-    "check": "node --check public/assets/app.js && node --check public/assets/admin.js && node --check functions/_lib/changelog.js && node --check worker.js",
+    "check": "node --check public/assets/app.js && node --check public/assets/admin.js && node --check public/assets/tag.js && node --check public/assets/author.js && node --check functions/_lib/changelog.js && node --check worker.js && node --check worker-standalone.js",
     "deploy:worker": "wrangler deploy --config wrangler.worker.jsonc"
   },
   "devDependencies": {

@@ -3,7 +3,7 @@
 这个项目采用前后端分离架构：
 
 - **前端**：Cloudflare Pages 托管静态文件（`public/` 目录）
-- **后端**：独立 Cloudflare Worker + KV（`worker.js`）
+- **后端**：独立 Cloudflare Worker + KV（`worker-standalone.js`，自包含无外部依赖）
 
 ## 架构说明
 
@@ -36,7 +36,7 @@
 │  │  ├── POST /api/admin/posts   创建日志                       │ │
 │  │  ├── GET  /api/admin/posts/:id   查看单条日志               │ │
 │  │  ├── PUT  /api/admin/posts/:id   更新日志                   │ │
-│  │  └── DELETE /api/admin/posts/:id 归档日志                   │ │
+│  │  └── DELETE /api/admin/posts/:id 删除日志                   │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                              ↓ 绑定                              │
 │  ┌─────────────────────────────────────────────────────────────┐ │

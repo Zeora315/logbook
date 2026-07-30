@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>后台 - 我的更新日志</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=14" />
-    <script src="/config.js?v=14"></script>
-    <script type="module" src="/assets/admin.js?v=14"></script>
+    <link rel="stylesheet" href="/assets/styles.css?v=26" />
+    <script src="/config.js?v=22"></script>
+    <script type="module" src="/assets/admin.js?v=26"></script>
   </head>
   <body data-page="admin">
     <a class="skip-link" href="#admin-content">跳到管理内容</a>
@@ -100,13 +100,39 @@
               </div>
 
               <label>
+                <span>发布日期 <small>（可自定义，便于导入旧说说）</small></span>
+                <input type="datetime-local" name="publishedAt" placeholder="留空则用当前时间" />
+              </label>
+
+              <label>
                 <span>正文</span>
                 <textarea name="body" class="body-editor" required placeholder="支持轻量 Markdown：# 标题、- 列表、**加粗**、`代码`。"></textarea>
               </label>
 
+              <div class="repeatable-section">
+                <div class="repeatable-head">
+                  <span>底部链接 <small>（如 GitHub 仓库、相关页面）</small></span>
+                  <button class="ghost-button small-button" type="button" id="add-link">+ 添加链接</button>
+                </div>
+                <div class="repeatable-list" id="links-list"></div>
+              </div>
+
+              <div class="repeatable-section">
+                <div class="repeatable-head">
+                  <span>附件 <small>（图片链接 / 上传 PDF 等文件）</small></span>
+                  <div class="repeatable-add-row">
+                    <button class="ghost-button small-button" type="button" id="add-attachment-url">+ 添加图片/文件链接</button>
+                    <label class="ghost-button small-button upload-label" for="attachment-upload">↑ 上传文件</label>
+                    <input type="file" id="attachment-upload" hidden />
+                  </div>
+                </div>
+                <div class="repeatable-list" id="attachments-list"></div>
+              </div>
+
               <div class="form-actions">
                 <button class="primary-button" type="submit">保存</button>
                 <button class="secondary-button" id="publish-now" type="button">保存并发布</button>
+                <button class="secondary-button" id="publish-new" type="button">发布并新建</button>
                 <button class="ghost-button" id="clear-post" type="button">新建</button>
               </div>
             </form>

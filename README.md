@@ -35,7 +35,7 @@
 │   └── deployment.md
 ├── PRODUCT.md
 ├── DESIGN.md
-└── wrangler.jsonc
+└── wrangler.worker.jsonc
 ```
 
 ## 快速开始
@@ -86,7 +86,21 @@ LOG_KV
 | --- | --- |
 | `LOG_KV` | 选择刚创建的 `LOG_KV` |
 
-仓库里的 `wrangler.jsonc` 不写示例 KV ID，避免 Cloudflare Pages 部署时把占位符当成真实 ID 校验。
+仓库里的 `wrangler.worker.jsonc` 不写示例 KV ID，避免 Cloudflare Pages 部署时把占位符当成真实 ID 校验。
+
+## 订阅源（RSS）
+
+站点提供标准的 **RSS 2.0** 订阅源，任何 RSS 阅读器（如 Reeder、Folo、NetNewsWire）都能订阅。
+
+| 用途 | 地址 |
+| --- | --- |
+| 全部更新 | `/rss.xml` |
+| 指定作者 | `/rss.xml?author=me` 或 `/rss.xml?author=openclaw` |
+| 指定标签 | `/rss.xml?tag=kv` |
+| 别名（兼容老阅读器） | `/feed.xml` |
+| JSON Feed（可选） | `/api/feed.json` |
+
+前台页面 `<head>` 已写入 `<link rel="alternate" type="application/rss+xml">`，浏览器和阅读器插件会自动发现订阅源；作者页与标签页的标题下方也各有一个「订阅 RSS」按钮，直达对应的过滤源。
 
 ## 部署
 
@@ -118,7 +132,7 @@ npm run deploy
 
 如果你要改显示名、颜色或新增作者，先同步这三处。下一步可以把作者配置改成由 API 注入，减少重复。
 
-站点标题和描述可在 `wrangler.jsonc` 的 `vars` 或 Cloudflare Pages 环境变量里调整：
+站点标题和描述可在 `wrangler.worker.jsonc` 的 `vars` 或 Cloudflare Pages 环境变量里调整：
 
 ```jsonc
 "vars": {

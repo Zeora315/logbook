@@ -14,6 +14,7 @@ export const AUTHORS = {
 const INDEX_ADMIN = "index:admin:latest";
 const INDEX_PUBLISHED = "index:published:latest";
 const STATUS_VALUES = new Set(["draft", "published", "archived"]);
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8MB，KV 单值上限 25MB，留余量
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -95,13 +96,10 @@ export async function requireAdmin(context) {
 
 export async function listPosts(kv, options = {}) {
   assertKv(kv);
-  const indexKey = options.publishedOnly ? INDEX_PUBLISHED : INDEX_ADMIN;
-  const ids = await getIndexIds(kv, indexKey);
-  const indexedPosts = await getPostsByIds(kv, ids);
-  const storedPosts = await listStoredPosts(kv);
-  const posts = mergePosts(storedPosts, indexedPosts);
+  // 关键修复：始终扫描 KV 中真实存储的 post，不依赖可能过时的索引
+  let posts = await listStoredPosts(kv);
 
-  if (options.repairIndexes !== false) {
+  if (options.repair === true) {
     await repairIndexesIfNeeded(kv, posts);
   }
 
@@ -138,8 +136,20 @@ export async function savePost(kv, input, context = {}) {
   const slug = await ensureUniqueSlug(kv, baseSlug, existing?.id);
   const id = existing?.id || (await ensureUniqueId(kv, `${compactDate(now)}-${slug}`));
   const tags = normalizeTags(input.tags);
+  const links = normalizeLinks(input.links);
+  const attachments = normalizeAttachments(input.attachments);
   const wasPublished = existing?.status === "published";
   const willPublish = status === "published";
+
+  // 自定义发布日期：导入旧说说或指定某一天
+  const inputDate = cleanText(input.publishedAt);
+  let publishedAt = existing?.publishedAt || "";
+  if (inputDate && !Number.isNaN(Date.parse(inputDate))) {
+    publishedAt = new Date(inputDate).toISOString();
+  } else if (willPublish && !publishedAt) {
+    publishedAt = now;
+  }
+  // 取消发布（草稿/归档）时保留原发布时间，便于重新发布
 
   const post = {
     id,
@@ -150,8 +160,10 @@ export async function savePost(kv, input, context = {}) {
     tags,
     summary: cleanText(input.summary),
     body,
+    links,
+    attachments,
     createdAt: existing?.createdAt || now,
-    publishedAt: willPublish ? existing?.publishedAt || now : existing?.publishedAt || "",
+    publishedAt,
     updatedAt: now
   };
 
@@ -200,6 +212,7 @@ export async function deletePost(kv, id, context = {}) {
   const existing = await getPost(kv, id);
   const now = new Date().toISOString();
 
+  // 1. Archive the old version, delete post data, mark as deleted
   await Promise.all([
     putJson(kv, `post:${id}:rev:${Date.now()}`, existing),
     kv.delete(keyPost(id)),
@@ -220,7 +233,8 @@ export async function deletePost(kv, id, context = {}) {
     })
   ]);
 
-  const remainingPosts = (await listStoredPosts(kv)).filter((post) => post.id !== id).sort(sortPosts);
+  // 2. Rebuild indexes from actual stored data (excluding deleted)
+  const remainingPosts = (await listStoredPosts(kv)).sort(sortPosts);
   await writeIndexes(kv, remainingPosts);
   return existing;
 }
@@ -251,6 +265,190 @@ export async function getFeed(kv, site = {}) {
   };
 }
 
+/**
+ * Escape a string for safe inclusion in XML text/attribute nodes.
+ * @param {any} value
+ * @returns {string}
+ */
+export function escapeXml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/**
+ * Apply inline markdown formatting (bold + inline code) to an already XML-escaped string.
+ * @param {string} value
+ * @returns {string}
+ */
+function inlineRssFormat(value) {
+  return escapeXml(value)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`(.+?)`/g, "<code>$1</code>");
+}
+
+/**
+ * Render post body (lightweight markdown) to HTML for RSS content:encoded.
+ * @param {string} source
+ * @returns {string}
+ */
+function renderRssBody(source) {
+  const lines = String(source || "").split(/\r?\n/);
+  const html = [];
+  let listOpen = false;
+  const closeList = () => {
+    if (listOpen) {
+      html.push("</ul>");
+      listOpen = false;
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      closeList();
+      continue;
+    }
+    if (line.startsWith("### ")) {
+      closeList();
+      html.push(`<h3>${inlineRssFormat(line.slice(4))}</h3>`);
+    } else if (line.startsWith("## ")) {
+      closeList();
+      html.push(`<h2>${inlineRssFormat(line.slice(3))}</h2>`);
+    } else if (line.startsWith("# ")) {
+      closeList();
+      html.push(`<h2>${inlineRssFormat(line.slice(2))}</h2>`);
+    } else if (line.startsWith("- ")) {
+      if (!listOpen) {
+        html.push("<ul>");
+        listOpen = true;
+      }
+      html.push(`<li>${inlineRssFormat(line.slice(2))}</li>`);
+    } else {
+      closeList();
+      html.push(`<p>${inlineRssFormat(line)}</p>`);
+    }
+  }
+  closeList();
+  return html.join("");
+}
+
+/**
+ * Render a single RSS <item> element.
+ * @param {object} post
+ * @param {string} origin
+ * @returns {string}
+ */
+function renderRssItem(post, origin) {
+  const author = AUTHORS[post.authorId] || AUTHORS.me;
+  const link = origin ? `${origin}/#${post.slug || post.id}` : `#${post.slug || post.id}`;
+  const guid = post.id || `${post.slug || ""}-${post.publishedAt || post.updatedAt}`;
+  const dateValue = post.publishedAt || post.updatedAt || post.createdAt;
+  const pubDate = dateValue ? new Date(dateValue).toUTCString() : new Date().toUTCString();
+  const summary = post.summary || String(post.body || "").slice(0, 160);
+  let content = renderRssBody(post.body || "");
+
+  // 附件图片加入正文
+  const images = (post.attachments || []).filter((a) => a.kind === "image");
+  if (images.length) {
+    content += images.map((a) => `<p><img src="${escapeXml(absoluteUrl(origin, a.url))}" alt="${escapeXml(a.alt || a.name || "")}" /></p>`).join("");
+  }
+  // 底部链接
+  const links = post.links || [];
+  if (links.length) {
+    content += `<p>` + links.map((l) => `🔗 <a href="${escapeXml(l.url)}">${escapeXml(l.label || l.url)}</a>`).join(" · ") + `</p>`;
+  }
+
+  const categoryLines = (post.tags || [])
+    .map((tag) => `      <category>${escapeXml(tag)}</category>`)
+    .join("\n");
+
+  return `    <item>
+      <title>${escapeXml(post.title || "更新")}</title>
+      <link>${escapeXml(link)}</link>
+      <guid isPermaLink="false">${escapeXml(guid)}</guid>
+      <pubDate>${pubDate}</pubDate>
+      <dc:creator>${escapeXml(author.name)}</dc:creator>
+${categoryLines ? categoryLines + "\n" : ""}      <description>${escapeXml(summary)}</description>
+      <content:encoded><![CDATA[${content}]]></content:encoded>
+    </item>
+`;
+}
+
+/**
+ * Build an RSS 2.0 XML feed for all published posts (optionally filtered by author/tag).
+ * @param {KVNamespace} kv
+ * @param {object} [site]
+ * @returns {Promise<string>}
+ */
+export async function getRss(kv, site = {}) {
+  const authorId = site.authorId && AUTHORS[site.authorId] ? site.authorId : "";
+  const tag = site.tag || "";
+  const origin = (site.origin || "").replace(/\/$/, "");
+  const baseTitle = site.title || "我的更新日志";
+  const description =
+    site.description ||
+    "Zeora 和虾米的更新日志，记录每个项目的更新、发布、修复与小里程碑。";
+  const feedUrl = site.feedUrl || `${origin}/rss.xml`;
+
+  const filterLabel = authorId ? AUTHORS[authorId].name : tag ? `#${tag}` : "";
+  const channelTitle = filterLabel ? `${baseTitle} · ${filterLabel}` : baseTitle;
+
+  const posts = await listPosts(kv, {
+    publishedOnly: true,
+    limit: site.limit || 50,
+    authorId,
+    tag
+  });
+
+  let itemsXml;
+  if (posts.length) {
+    itemsXml = posts.map((post) => renderRssItem(post, origin)).join("");
+  } else {
+    const emptyPub = new Date().toUTCString();
+    itemsXml =
+      `    <item>\n` +
+      `      <title>还没有已发布的更新</title>\n` +
+      `      <link>${escapeXml(origin || "/")}</link>\n` +
+      `      <guid isPermaLink="false">${escapeXml(origin || "/")}-empty</guid>\n` +
+      `      <pubDate>${emptyPub}</pubDate>\n` +
+      `      <description>这个更新日志还没有内容。</description>\n` +
+      `    </item>\n`;
+  }
+
+  const lastBuild = posts.length
+    ? new Date(posts[0].publishedAt || posts[0].updatedAt).toUTCString()
+    : new Date().toUTCString();
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>${escapeXml(channelTitle)}</title>
+    <link>${escapeXml(origin || feedUrl)}</link>
+    <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml" />
+    <description>${escapeXml(description)}</description>
+    <language>zh-CN</language>
+    <lastBuildDate>${lastBuild}</lastBuildDate>
+    <generator>Zeora Logbook</generator>
+${itemsXml}  </channel>
+</rss>`;
+}
+
+/**
+ * Wrap RSS XML in a Response with the correct content type.
+ * @param {string} xml
+ * @param {object} [init]
+ * @returns {Response}
+ */
+export function rssResponse(xml, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set("content-type", "application/rss+xml; charset=utf-8");
+  headers.set("cache-control", init.cacheControl || "public, max-age=60");
+  return new Response(xml, { status: init.status || 200, headers });
+}
+
 export function publicPost(post) {
   return {
     id: post.id,
@@ -261,6 +459,8 @@ export function publicPost(post) {
     tags: post.tags || [],
     summary: post.summary || "",
     body: post.body || "",
+    links: post.links || [],
+    attachments: post.attachments || [],
     createdAt: post.createdAt,
     publishedAt: post.publishedAt,
     updatedAt: post.updatedAt
@@ -298,8 +498,9 @@ async function getPostsByIds(kv, ids) {
 async function rebuildIndexes(kv, changedId) {
   const storedPosts = await listStoredPosts(kv);
   const changedPost = changedId ? await getJson(kv, keyPost(changedId)) : null;
+  // Merge: stored posts take priority, but include the just-saved post even if
+  // KV list hasn't caught up yet (eventual consistency).
   const posts = mergePosts(storedPosts, changedPost ? [changedPost] : []).sort(sortPosts);
-
   await writeIndexes(kv, posts);
 }
 
@@ -419,6 +620,14 @@ function keyDeleted(id) {
   return `deleted:${id}`;
 }
 
+function keyFileMeta(id) {
+  return `file:meta:${id}`;
+}
+
+function keyFileData(id) {
+  return `file:data:${id}`;
+}
+
 function sortPosts(a, b) {
   const left = Date.parse(a.publishedAt || a.updatedAt || a.createdAt || 0);
   const right = Date.parse(b.publishedAt || b.updatedAt || b.createdAt || 0);
@@ -447,6 +656,121 @@ function cleanText(value) {
 function normalizeTags(value) {
   const tags = Array.isArray(value) ? value : String(value || "").split(",");
   return [...new Set(tags.map((tag) => cleanText(tag).toLowerCase()).filter(Boolean))].slice(0, 16);
+}
+
+function normalizeLinks(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const label = cleanText(item.label).slice(0, 80);
+    const url = cleanText(item.url);
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({ label: label || url, url: url.slice(0, 500) });
+  }
+  return out.slice(0, 32);
+}
+
+function normalizeAttachments(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const url = cleanText(item.url);
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const kind = item.kind === "image" || /^image\//i.test(item.type || "") ? "image" : "file";
+    out.push({
+      kind,
+      url: url.slice(0, 500),
+      name: cleanText(item.name).slice(0, 120),
+      alt: cleanText(item.alt || "").slice(0, 120),
+      type: cleanText(item.type || ""),
+      size: Number.isFinite(item.size) ? Number(item.size) : 0
+    });
+  }
+  return out.slice(0, 32);
+}
+
+function absoluteUrl(origin, url) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/")) return (origin || "") + url;
+  return url;
+}
+
+export async function uploadFile(kv, request, context) {
+  assertKv(kv);
+  const contentType = (request.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("multipart/form-data")) {
+    throw new HttpError(400, "Request must be multipart/form-data.");
+  }
+
+  const formData = await request.formData();
+  const file = formData.get("file");
+  if (!file || typeof file === "undefined") {
+    throw new HttpError(400, "No file field in upload.");
+  }
+  if (typeof file === "string") {
+    throw new HttpError(400, "Uploaded field is not a file.");
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  if (arrayBuffer.byteLength > MAX_UPLOAD_BYTES) {
+    throw new HttpError(413, `File too large. Max ${MAX_UPLOAD_BYTES} bytes.`);
+  }
+
+  const rawName = cleanText(file.name || "attachment");
+  const type = cleanText(file.type || "application/octet-stream");
+  const size = arrayBuffer.byteLength;
+  const id = `upl-${compactDate(new Date().toISOString())}-${crypto.randomUUID().slice(0, 8)}`;
+  const kind = type.startsWith("image/") ? "image" : "file";
+
+  const meta = {
+    id,
+    name: rawName.slice(0, 180),
+    type,
+    size,
+    kind,
+    uploadedAt: new Date().toISOString(),
+    subject: context.subject || "unknown"
+  };
+
+  await Promise.all([
+    putJson(kv, keyFileMeta(id), meta),
+    kv.put(keyFileData(id), arrayBuffer)
+  ]);
+
+  return {
+    id,
+    url: `/api/files/${id}`,
+    name: meta.name,
+    type,
+    size,
+    kind
+  };
+}
+
+export async function serveFile(kv, id) {
+  assertKv(kv);
+  if (!id) throw new HttpError(400, "File id is required.");
+  const meta = await getJson(kv, keyFileMeta(id));
+  if (!meta) throw new HttpError(404, "File not found.");
+  const data = await kv.get(keyFileData(id), "arrayBuffer");
+  if (!data) throw new HttpError(404, "File data is missing.");
+
+  const headers = new Headers();
+  headers.set("content-type", meta.type || "application/octet-stream");
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  const safeName = (meta.name || "file").replace(/"/g, "_");
+  headers.set("content-disposition", `inline; filename="${safeName}"`);
+  headers.set("access-control-allow-origin", "*");
+  return new Response(data, { status: 200, headers });
 }
 
 function safeEqual(left, right) {

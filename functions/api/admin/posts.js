@@ -12,7 +12,7 @@ import {
 export async function onRequestGet(context) {
   try {
     await requireAdmin(context);
-    const posts = await listPosts(context.env.LOG_KV);
+    const posts = await listPosts(context.env.LOG_KV, { repair: true });
     return json({
       posts: posts.map(adminPost),
       authors: AUTHORS

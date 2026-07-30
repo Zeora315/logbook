@@ -9,8 +9,8 @@ const AUTHORS = {
     id: "me",
     name: "Zeora",
     color: "#4b8fbf",
-    avatar: "",
-    bio: "记录 Zeora 和虾米的更新、发布、修复和小型里程碑。"
+    avatar: "http://p.zeora.top/logo",
+    bio: "记录 Zeora 所有项目的更新"
   },
   openclaw: {
     id: "openclaw",
@@ -121,6 +121,8 @@ window.logbook = {
   escapeAttribute
 };
 
+window.escapeHtml = escapeHtml;
+
 function loadConfig() {
   const greeting = localStorage.getItem("logbook-config-greeting");
   const avatarMe = localStorage.getItem("logbook-config-avatar-me");
@@ -152,10 +154,9 @@ function applyNavLinks(links) {
 
 function initProfile() {
   const owner = AUTHORS[SITE.ownerId] || AUTHORS.me;
-  if (profileName) profileName.textContent = owner.name;
   if (profileAvatarImg) {
     profileAvatarImg.src = owner.avatar || "";
-    profileAvatarImg.alt = owner.name;
+    profileAvatarImg.alt = "Zeora Log";
     profileAvatarImg.onerror = () => {
       profileAvatarImg.replaceWith(createInitialsAvatar(owner, "profile-avatar-img"));
     };
@@ -297,9 +298,35 @@ function renderPostCard(post, index) {
         </div>
         ${post.summary ? `<p class="log-summary">${escapeHtml(post.summary)}</p>` : ""}
         <div class="log-body">${markdownToHtml(post.body || "")}</div>
+        ${renderPostLinks(post)}
+        ${renderPostAttachments(post)}
       </div>
     </article>
   `;
+}
+
+function renderPostLinks(post) {
+  const links = (post.links || []).filter((l) => l.url);
+  if (!links.length) return "";
+  return `<div class="log-links">${links.map((l) => `<a class="log-link" href="${escapeAttribute(l.url)}" target="_blank" rel="noopener noreferrer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>${escapeHtml(l.label || l.url)}</a>`).join("")}</div>`;
+}
+
+function renderPostAttachments(post) {
+  const items = (post.attachments || []).filter((a) => a.url);
+  if (!items.length) return "";
+  const images = items.filter((a) => a.kind === "image" || /^image\//i.test(a.type || ""));
+  const files = items.filter((a) => !(a.kind === "image" || /^image\//i.test(a.type || "")));
+  let html = "";
+  if (images.length) html += `<div class="log-gallery">${images.map((a) => `<a class="log-gallery-item" href="${escapeAttribute(resolveAssetUrl(a.url))}" target="_blank" rel="noopener noreferrer"><img src="${escapeAttribute(resolveAssetUrl(a.url))}" alt="${escapeHtml(a.alt || a.name || "")}" loading="lazy" /></a>`).join("")}</div>`;
+  if (files.length) html += `<div class="log-files">${files.map((a) => `<a class="log-file" href="${escapeAttribute(resolveAssetUrl(a.url))}" target="_blank" rel="noopener noreferrer">📄 ${escapeHtml(a.name || "附件")}</a>`).join("")}</div>`;
+  return html ? `<div class="log-attachments"><span class="log-attachments-label">附件</span>${html}</div>` : "";
+}
+
+// 后端托管的文件（如 /api/files/...）需要拼接 API 域名
+function resolveAssetUrl(url) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return apiUrl(url);
 }
 
 function renderTagList(posts) {

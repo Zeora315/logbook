@@ -5,14 +5,18 @@ import {
   deletePost,
   getFeed,
   getPost,
+  getRss,
   handleError,
   HttpError,
   json,
   listPosts,
   publicPost,
+  rssResponse,
   readJson,
   requireAdmin,
-  savePost
+  savePost,
+  serveFile,
+  uploadFile
 } from "./functions/_lib/changelog.js";
 
 export default {
@@ -41,10 +45,25 @@ export default {
         return await handleGetPosts(request, env, corsHeaders);
       }
 
-      // GET /api/feed.json
-      if (path === "/api/feed.json" && request.method === "GET") {
-        return await handleGetFeed(request, env, corsHeaders);
-      }
+  // GET /api/feed.json
+  if (path === "/api/feed.json" && request.method === "GET") {
+    return await handleGetFeed(request, env, corsHeaders);
+  }
+
+  // GET /rss.xml and /feed.xml (RSS 2.0 subscription feeds)
+  if (
+    (path === "/rss.xml" || path === "/feed.xml") &&
+    request.method === "GET"
+  ) {
+    return await handleGetRss(request, env, corsHeaders);
+  }
+
+      // 文件服务（公开读取，用于图片/PDF 展示）
+  const fileMatch = path.match(/^\/api\/files\/([^/]+)$/);
+  if (fileMatch && request.method === "GET") {
+    return await serveFile(env.LOG_KV, fileMatch[1]);
+  }
+
 
       // /api/admin/posts
       if (path === "/api/admin/posts") {
@@ -69,6 +88,13 @@ export default {
         if (request.method === "DELETE") {
           return await handleAdminDelete(context, postId, corsHeaders);
         }
+      }
+
+      // POST /api/admin/upload （上传图片/PDF 等附件）
+      if (path === "/api/admin/upload" && request.method === "POST") {
+        const admin = await requireAdmin(context);
+        const result = await uploadFile(env.LOG_KV, request, admin);
+        return json({ attachment: result }, { status: 201, headers: corsHeaders });
       }
 
       // Not found
@@ -115,6 +141,25 @@ async function handleGetFeed(request, env, corsHeaders) {
     description: env.SITE_DESCRIPTION
   });
   return json(feed, {
+    cacheControl: "public, max-age=60",
+    headers: corsHeaders
+  });
+}
+
+async function handleGetRss(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const authorId = url.searchParams.get("author") || "";
+  const tag = url.searchParams.get("tag") || "";
+  const feedUrl = `${url.origin}/rss.xml${url.search}`;
+  const xml = await getRss(env.LOG_KV, {
+    origin: url.origin,
+    title: env.SITE_TITLE,
+    description: env.SITE_DESCRIPTION,
+    authorId: authorId && authorId !== "all" ? authorId : "",
+    tag: tag && tag !== "all" ? tag : "",
+    feedUrl
+  });
+  return rssResponse(xml, {
     cacheControl: "public, max-age=60",
     headers: corsHeaders
   });

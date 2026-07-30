@@ -9,8 +9,8 @@ const AUTHORS = {
     id: "me",
     name: "Zeora",
     color: "#4b8fbf",
-    avatar: "",
-    bio: "记录 Zeora 和虾米的更新、发布、修复和小型里程碑。"
+    avatar: "http://p.zeora.top/logo",
+    bio: "记录 Zeora 所有项目的更新"
   },
   openclaw: {
     id: "openclaw",
@@ -30,6 +30,9 @@ const EMPTY_POST = {
   tags: [],
   summary: "",
   body: "",
+  publishedAt: "",
+  links: [],
+  attachments: [],
   createdAt: "",
   updatedAt: ""
 };
@@ -81,6 +84,13 @@ const queue = document.querySelector("#post-queue");
 const preview = document.querySelector("#preview-card");
 const previewDate = document.querySelector("#preview-date");
 const saveState = document.querySelector("#save-state");
+const linksList = document.querySelector("#links-list");
+const attachmentsList = document.querySelector("#attachments-list");
+const attachmentUpload = document.querySelector("#attachment-upload");
+
+// 编辑器内部的临时状态：链接与附件在表单外用 DOM 维护，写入时收集
+let editorLinks = [];
+let editorAttachments = [];
 const loginPanel = document.querySelector("#login-panel");
 const adminApp = document.querySelector("#admin-app");
 const loginForm = document.querySelector("#login-form");
@@ -108,7 +118,17 @@ document.querySelectorAll(".admin-tab").forEach((tab) => {
 document.querySelector("#logout-btn").addEventListener("click", logout);
 document.querySelector("#reload-admin").addEventListener("click", loadAdminPosts);
 document.querySelector("#publish-now").addEventListener("click", () => publishNow());
+document.querySelector("#publish-new").addEventListener("click", () => publishNew());
 document.querySelector("#clear-post").addEventListener("click", () => selectPost(""));
+document.querySelector("#add-link").addEventListener("click", () => {
+  editorLinks.push({ label: "", url: "" });
+  renderLinksEditor();
+});
+document.querySelector("#add-attachment-url").addEventListener("click", () => {
+  editorAttachments.push({ kind: "file", url: "", name: "", type: "" });
+  renderAttachmentsEditor();
+});
+attachmentUpload.addEventListener("change", () => uploadAttachment(attachmentUpload));
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -243,52 +263,77 @@ function renderQueue(errorMessage = "") {
     .map((post) => {
       const author = AUTHORS[post.authorId] || AUTHORS.me;
       const date = formatDate(post.publishedAt || post.updatedAt || post.createdAt);
+      const statusLabel = { draft: "草稿", published: "已发布", archived: "归档" }[post.status] || post.status;
+      const statusTone = { draft: "warn", published: "ok", archived: "" }[post.status] || "";
       return `
-        <div class="queue-item ${post.id === state.activeId ? "is-active" : ""}" data-id="${escapeAttribute(post.id)}">
+        <div class="queue-item ${post.id === state.activeId ? "is-active" : ""}" data-post-id="${escapeAttribute(post.id)}">
           <div class="queue-item-main">
             <strong>${escapeHtml(post.title || "未命名日志")}</strong>
-            <small>${escapeHtml(author.name)} / ${escapeHtml(post.status || "draft")} / ${date}</small>
+            <small>${escapeHtml(author.name)} · ${date}</small>
           </div>
           <div class="queue-item-actions">
-            <button class="queue-edit" type="button" data-id="${escapeAttribute(post.id)}">编辑</button>
-            ${post.status !== "archived" ? `<button class="queue-archive" type="button" data-id="${escapeAttribute(post.id)}">归档</button>` : ""}
-            <button class="queue-delete" type="button" data-id="${escapeAttribute(post.id)}">删除</button>
+            <span class="queue-status" data-tone="${statusTone}">${statusLabel}</span>
+            <button class="queue-edit" type="button" data-action="edit" data-post-id="${escapeAttribute(post.id)}">编辑</button>
+            ${post.status !== "archived" ? `<button class="queue-archive" type="button" data-action="archive" data-post-id="${escapeAttribute(post.id)}">归档</button>` : ""}
+            <button class="queue-delete" type="button" data-action="delete" data-post-id="${escapeAttribute(post.id)}">删除</button>
           </div>
         </div>
       `;
     })
     .join("");
-
-  queue.querySelectorAll("[data-id]").forEach((el) => {
-    el.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const id = el.dataset.id;
-      if (el.classList.contains("queue-archive")) {
-        archiveById(id);
-      } else if (el.classList.contains("queue-delete")) {
-        deleteById(id);
-      } else {
-        selectPost(id);
-        switchTab("publish");
-      }
-    });
-  });
 }
 
-async function archiveById(id) {
+// Single delegated listener on the queue container
+queue.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-action]");
+  if (button) {
+    event.stopPropagation();
+    const id = button.dataset.postId;
+    const action = button.dataset.action;
+    if (action === "edit") {
+      selectPost(id);
+      switchTab("publish");
+    } else if (action === "archive") {
+      archiveById(id, button);
+    } else if (action === "delete") {
+      deleteById(id, button);
+    }
+    return;
+  }
+  // Click on the queue item itself → edit
+  const item = event.target.closest("[data-post-id]");
+  if (item) {
+    selectPost(item.dataset.postId);
+    switchTab("publish");
+  }
+});
+
+async function archiveById(id, button) {
   const post = state.posts.find((item) => item.id === id);
   if (!post) return;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "归档中…";
+  }
   state.activeId = id;
   writeForm({ ...post, status: "archived" });
   await savePost();
+  if (button) {
+    button.disabled = false;
+    button.textContent = "归档";
+  }
 }
 
-async function deleteById(id) {
+async function deleteById(id, button) {
   const post = state.posts.find((item) => item.id === id);
   if (!post) return;
   const ok = window.confirm(`确定要删除《${post.title || "未命名日志"}》吗？删除后不会再出现在后台和前台。`);
   if (!ok) return;
 
+  if (button) {
+    button.disabled = true;
+    button.textContent = "删除中…";
+  }
   setSaveState("正在删除...", "busy");
   try {
     const response = await fetch(apiUrl(`/api/admin/posts/${encodeURIComponent(id)}`), {
@@ -308,6 +353,11 @@ async function deleteById(id) {
   } catch (error) {
     const message = error instanceof SyntaxError ? "静态预览不能删除，部署到 Cloudflare 后可用。" : `删除失败：${error.message}`;
     setSaveState(message, "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "删除";
+    }
   }
 }
 
@@ -315,7 +365,11 @@ function selectPost(id) {
   state.activeId = id || "";
   state.dirty = false;
   const post = state.posts.find((item) => item.id === id) || EMPTY_POST;
+  editorLinks = JSON.parse(JSON.stringify(post.links || []));
+  editorAttachments = JSON.parse(JSON.stringify(post.attachments || []));
   writeForm(post);
+  renderLinksEditor();
+  renderAttachmentsEditor();
   renderPreview(post);
   renderQueue();
   setSaveState(id ? "已载入" : "新草稿", "ok");
@@ -326,6 +380,13 @@ function publishNow() {
   savePost();
 }
 
+// 发布当前说说后立即新建一条空白草稿，便于连续发布多条而不互相覆盖
+async function publishNew() {
+  form.elements.status.value = "published";
+  const ok = await savePost();
+  if (ok) selectPost("");
+}
+
 function writeForm(post) {
   form.elements.title.value = post.title || "";
   form.elements.slug.value = post.slug || "";
@@ -333,14 +394,34 @@ function writeForm(post) {
   form.elements.tags.value = (post.tags || []).join(", ");
   form.elements.status.value = post.status || "draft";
   form.elements.body.value = post.body || "";
+  form.elements.publishedAt.value = toDatetimeLocal(post.publishedAt);
   const author = post.authorId || "me";
   form.querySelectorAll("input[name='authorId']").forEach((input) => {
     input.checked = input.value === author;
   });
 }
 
+// ISO -> datetime-local 控件需要的 yyyy-MM-ddTHH:mm
+function toDatetimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// datetime-local -> ISO 字串
+function fromDatetimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
 function readForm() {
   const formData = new FormData(form);
+  // 收集编辑器中当前输入的链接/附件（含未提交的输入框值）
+  collectEditorInputs();
   return {
     id: state.activeId,
     title: String(formData.get("title") || "").trim(),
@@ -352,15 +433,125 @@ function readForm() {
       .map((tag) => tag.trim())
       .filter(Boolean),
     summary: String(formData.get("summary") || "").trim(),
-    body: String(formData.get("body") || "").trim()
+    body: String(formData.get("body") || "").trim(),
+    publishedAt: fromDatetimeLocal(String(formData.get("publishedAt") || "")),
+    links: editorLinks.filter((l) => l.url),
+    attachments: editorAttachments.filter((a) => a.url)
   };
+}
+
+// 渲染底部链接编辑器
+function renderLinksEditor() {
+  if (!linksList) return;
+  linksList.innerHTML = editorLinks.map((link, index) => `
+    <div class="repeatable-row" data-index="${index}">
+      <input class="rep-label" placeholder="链接名称（如 GitHub 仓库）" value="${escapeAttribute(link.label || "")}" />
+      <input class="rep-url" placeholder="https://github.com/..." value="${escapeAttribute(link.url || "")}" />
+      <button class="ghost-button small-button rep-remove" type="button">删除</button>
+    </div>
+  `).join("");
+}
+
+// 渲染附件编辑器
+function renderAttachmentsEditor() {
+  if (!attachmentsList) return;
+  attachmentsList.innerHTML = editorAttachments.map((item, index) => {
+    const isImage = item.kind === "image" || /^image\//i.test(item.type || "");
+    const icon = isImage ? "🖼" : "📄";
+    return `
+    <div class="repeatable-row" data-index="${index}">
+      <span class="rep-kind" title="${escapeAttribute(item.type || "")}">${icon}</span>
+      <input class="rep-url" placeholder="https://... 或上传后的文件地址" value="${escapeAttribute(item.url || "")}" />
+      <input class="rep-name" placeholder="名称（可选）" value="${escapeAttribute(item.name || "")}" />
+      <button class="ghost-button small-button rep-remove" type="button">删除</button>
+    </div>`;
+  }).join("");
+}
+
+// 从 DOM 输入框收集当前值回 editorLinks/editorAttachments
+function collectEditorInputs() {
+  linksList.querySelectorAll(".repeatable-row").forEach((row, index) => {
+    if (!editorLinks[index]) editorLinks[index] = { label: "", url: "" };
+    editorLinks[index].label = row.querySelector(".rep-label").value.trim();
+    editorLinks[index].url = row.querySelector(".rep-url").value.trim();
+  });
+  attachmentsList.querySelectorAll(".repeatable-row").forEach((row, index) => {
+    if (!editorAttachments[index]) editorAttachments[index] = { kind: "file", url: "", name: "", type: "" };
+    editorAttachments[index].url = row.querySelector(".rep-url").value.trim();
+    editorAttachments[index].name = row.querySelector(".rep-name").value.trim();
+  });
+}
+
+// 链接/附件行的事件代理：删除、输入更新预览
+linksList.addEventListener("click", (event) => {
+  const btn = event.target.closest(".rep-remove");
+  if (!btn) return;
+  const row = btn.closest(".repeatable-row");
+  const index = Number(row.dataset.index);
+  editorLinks.splice(index, 1);
+  renderLinksEditor();
+  renderPreview(readForm());
+});
+linksList.addEventListener("input", () => {
+  renderPreview(readForm());
+});
+attachmentsList.addEventListener("click", (event) => {
+  const btn = event.target.closest(".rep-remove");
+  if (!btn) return;
+  const row = btn.closest(".repeatable-row");
+  const index = Number(row.dataset.index);
+  editorAttachments.splice(index, 1);
+  renderAttachmentsEditor();
+  renderPreview(readForm());
+});
+attachmentsList.addEventListener("input", () => {
+  renderPreview(readForm());
+});
+
+// 上传文件到后端，返回附件对象后加入编辑器
+async function uploadAttachment(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!hasCredentials()) {
+    setSaveState("请先登录后再上传附件。", "error");
+    input.value = "";
+    return;
+  }
+  setSaveState("正在上传...", "busy");
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(apiUrl("/api/admin/upload"), {
+      method: "POST",
+      headers: requestHeaders(),
+      body: formData
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
+    const a = payload.attachment;
+    editorAttachments.push({
+      kind: a.kind,
+      url: a.url,
+      name: a.name,
+      type: a.type,
+      size: a.size
+    });
+    renderAttachmentsEditor();
+    renderPreview(readForm());
+    setSaveState("附件已上传", "ok");
+  } catch (error) {
+    const message = error instanceof SyntaxError ? "静态预览不能上传，部署到 Cloudflare 后可用。" : `上传失败：${error.message}`;
+    setSaveState(message, "error");
+  } finally {
+    input.value = "";
+  }
 }
 
 async function savePost() {
   const post = readForm();
   if (!post.title || !post.body) {
     setSaveState("标题和正文必填。", "error");
-    return;
+    return false;
   }
 
   setSaveState("正在保存...", "busy");
@@ -380,12 +571,18 @@ async function savePost() {
     state.dirty = false;
     await loadAdminPosts();
     const saved = state.posts.find((item) => item.id === state.activeId) || payload.post;
+    editorLinks = JSON.parse(JSON.stringify(saved.links || []));
+    editorAttachments = JSON.parse(JSON.stringify(saved.attachments || []));
     writeForm(saved);
+    renderLinksEditor();
+    renderAttachmentsEditor();
     renderPreview(saved);
     setSaveState("已保存", "ok");
+    return true;
   } catch (error) {
     const message = error instanceof SyntaxError ? "静态预览不能保存，部署到 Cloudflare 后可用。" : `保存失败：${error.message}`;
     setSaveState(message, "error");
+    return false;
   }
 }
 
@@ -409,8 +606,27 @@ function renderPreview(post) {
       </div>
       ${post.summary ? `<p class="log-summary">${escapeHtml(post.summary)}</p>` : ""}
       <div class="log-body">${markdownToHtml(post.body || "正文会在这里预览。")}</div>
+      ${renderPreviewLinks(post)}
+      ${renderPreviewAttachments(post)}
     </div>
   `;
+}
+
+function renderPreviewLinks(post) {
+  const links = (post.links || []).filter((l) => l.url);
+  if (!links.length) return "";
+  return `<div class="log-links">${links.map((l) => `<a class="log-link" href="${escapeAttribute(l.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label || l.url)}</a>`).join("")}</div>`;
+}
+
+function renderPreviewAttachments(post) {
+  const items = (post.attachments || []).filter((a) => a.url);
+  if (!items.length) return "";
+  const images = items.filter((a) => a.kind === "image" || /^image\//i.test(a.type || ""));
+  const files = items.filter((a) => !(a.kind === "image" || /^image\//i.test(a.type || "")));
+  let html = "";
+  if (images.length) html += `<div class="log-gallery">${images.map((a) => `<a class="log-gallery-item" href="${escapeAttribute(a.url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeAttribute(a.url)}" alt="${escapeHtml(a.alt || a.name || "")}" loading="lazy" /></a>`).join("")}</div>`;
+  if (files.length) html += `<div class="log-files">${files.map((a) => `<a class="log-file" href="${escapeAttribute(a.url)}" target="_blank" rel="noopener noreferrer">📄 ${escapeHtml(a.name || "附件")}</a>`).join("")}</div>`;
+  return html ? `<div class="log-attachments"><span class="log-attachments-label">附件</span>${html}</div>` : "";
 }
 
 function requestHeaders() {
