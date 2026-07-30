@@ -200,7 +200,7 @@ async function handleAdminUpdate(context, postId, corsHeaders) {
 async function handleAdminDelete(context, postId, corsHeaders) {
   const admin = await requireAdmin(context);
   const post = await deletePost(context.env.LOG_KV, postId, admin);
-  return json({ post: adminPost(post), deleted: true }, { headers: corsHeaders });
+  return json({ post: adminPost(post), deleted: true, deletedIds: post.deletedIds || [postId] }, { headers: corsHeaders });
 }
 
 function clampNumber(value, min, max, fallback) {

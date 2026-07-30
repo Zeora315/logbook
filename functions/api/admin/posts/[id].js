@@ -42,7 +42,7 @@ export async function onRequestDelete(context) {
   try {
     const admin = await requireAdmin(context);
     const post = await deletePost(context.env.LOG_KV, context.params.id, admin);
-    return json({ post: adminPost(post), deleted: true });
+    return json({ post: adminPost(post), deleted: true, deletedIds: post.deletedIds || [context.params.id] });
   } catch (error) {
     return handleError(error);
   }

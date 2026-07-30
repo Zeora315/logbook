@@ -120,7 +120,7 @@ export async function listPosts(kv, options = {}) {
 export async function getPost(kv, id) {
   assertKv(kv);
   if (!id) throw new HttpError(400, "Post id is required.");
-  const post = await getJson(kv, keyPost(id));
+  const post = await getStoredPost(kv, keyPost(id));
   if (!post) throw new HttpError(404, "Post not found.");
   return post;
 }
@@ -128,12 +128,16 @@ export async function getPost(kv, id) {
 export async function savePost(kv, input, context = {}) {
   assertKv(kv);
   const now = new Date().toISOString();
-  const existing = input.id ? await getJson(kv, keyPost(input.id)) : null;
+  const requestedId = cleanText(input.id);
+  const existing = requestedId ? await getStoredPost(kv, keyPost(requestedId)) : null;
   const title = cleanText(input.title);
   const body = cleanText(input.body);
 
   if (!title) throw new HttpError(400, "Title is required.");
   if (!body) throw new HttpError(400, "Body is required.");
+  if (requestedId && !existing) {
+    throw new HttpError(404, "Post not found for update. Create a new post without an id.");
+  }
 
   const status = STATUS_VALUES.has(input.status) ? input.status : "draft";
   const authorId = AUTHORS[input.authorId] ? input.authorId : "me";
@@ -216,27 +220,32 @@ export async function deletePost(kv, id, context = {}) {
   assertKv(kv);
   const existing = await getPost(kv, id);
   const now = new Date().toISOString();
+  const companionPosts = await findDeleteCompanions(kv, existing);
+  const targets = [existing, ...companionPosts];
+  const targetIds = new Set(targets.map((post) => post.id));
 
   // 1. Archive the old version, delete post data, mark as deleted
-  await Promise.all([
-    putJson(kv, `post:${id}:rev:${Date.now()}`, existing),
-    kv.delete(keyPost(id)),
-    existing.slug ? kv.delete(keySlug(existing.slug)) : Promise.resolve(),
-    putJson(kv, keyDeleted(id), {
-      id,
-      slug: existing.slug || "",
-      subject: context.subject || "unknown",
-      at: now
-    }),
-    putJson(kv, `audit:${Date.now()}:${id}`, {
-      id,
-      action: "delete",
-      subject: context.subject || "unknown",
-      fromStatus: existing.status || null,
-      toStatus: "deleted",
-      at: now
-    })
-  ]);
+  await Promise.all(
+    targets.flatMap((post) => [
+      putJson(kv, `post:${post.id}:rev:${Date.now()}`, post),
+      kv.delete(keyPost(post.id)),
+      post.slug ? kv.delete(keySlug(post.slug)) : Promise.resolve(),
+      putJson(kv, keyDeleted(post.id), {
+        id: post.id,
+        slug: post.slug || "",
+        subject: context.subject || "unknown",
+        at: now
+      }),
+      putJson(kv, `audit:${Date.now()}:${post.id}`, {
+        id: post.id,
+        action: "delete",
+        subject: context.subject || "unknown",
+        fromStatus: post.status || null,
+        toStatus: "deleted",
+        at: now
+      })
+    ])
+  );
 
   // 2. Rebuild indexes from scan + existing index, explicitly excluding deleted id.
   const [storedPosts, adminIds, publishedIds] = await Promise.all([
@@ -246,10 +255,10 @@ export async function deletePost(kv, id, context = {}) {
   ]);
   const indexedPosts = await getPostsByIds(kv, [...adminIds, ...publishedIds]);
   const remainingPosts = mergePosts(indexedPosts, storedPosts)
-    .filter((post) => post.id !== id)
+    .filter((post) => !targetIds.has(post.id))
     .sort(sortPosts);
   await writeIndexes(kv, remainingPosts);
-  return existing;
+  return { ...existing, deletedIds: [...targetIds] };
 }
 
 export async function getFeed(kv, site = {}) {
@@ -583,6 +592,27 @@ function mergePosts(...groups) {
     map.set(post.id, post);
   });
   return [...map.values()];
+}
+
+async function findDeleteCompanions(kv, source) {
+  const posts = await listStoredPosts(kv);
+  return posts.filter((post) => post.id !== source.id && isSameLogicalPost(post, source));
+}
+
+function isSameLogicalPost(left, right) {
+  return (
+    left.authorId === right.authorId &&
+    cleanText(left.title).toLowerCase() === cleanText(right.title).toLowerCase() &&
+    cleanText(left.body) === cleanText(right.body) &&
+    dateKey(left.publishedAt) === dateKey(right.publishedAt) &&
+    Boolean(dateKey(left.publishedAt))
+  );
+}
+
+function dateKey(value) {
+  if (!value) return "";
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? cleanText(value) : new Date(time).toISOString();
 }
 
 function sameIds(left, right) {

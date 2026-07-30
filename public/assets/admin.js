@@ -346,9 +346,10 @@ async function deleteById(id, button) {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
 
-    state.deletedIds.add(id);
-    state.posts = state.posts.filter((item) => item.id !== id);
-    if (state.activeId === id) {
+    const deletedIds = Array.isArray(payload.deletedIds) && payload.deletedIds.length ? payload.deletedIds : [id];
+    deletedIds.forEach((deletedId) => state.deletedIds.add(deletedId));
+    state.posts = state.posts.filter((item) => !state.deletedIds.has(item.id));
+    if (state.deletedIds.has(state.activeId)) {
       state.activeId = "";
       writeForm(EMPTY_POST);
       renderPreview(EMPTY_POST);
