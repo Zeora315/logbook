@@ -71,11 +71,13 @@ const CONFIG_KEYS = {
   linkHome: "logbook-config-link-home",
   linkBlog: "logbook-config-link-blog"
 };
+const RECENTLY_DELETED_KEY = "logbook-admin-recently-deleted";
+const RECENTLY_DELETED_TTL_MS = 10 * 60 * 1000;
 
 const state = {
   posts: [],
   activeId: "",
-  deletedIds: new Set(),
+  deletedIds: new Set(Object.keys(loadRecentDeletedEntries())),
   dirty: false,
   authenticated: false
 };
@@ -266,8 +268,9 @@ function renderQueue(errorMessage = "") {
     .map((post) => {
       const author = AUTHORS[post.authorId] || AUTHORS.me;
       const date = formatDate(post.publishedAt || post.updatedAt || post.createdAt);
-      const statusLabel = { draft: "草稿", published: "已发布", archived: "归档" }[post.status] || post.status;
-      const statusTone = { draft: "warn", published: "ok", archived: "" }[post.status] || "";
+      const normalizedStatus = post.status === "published" ? "published" : "draft";
+      const statusLabel = { draft: "草稿", published: "发布中" }[normalizedStatus];
+      const statusTone = { draft: "warn", published: "ok" }[normalizedStatus];
       return `
         <div class="queue-item ${post.id === state.activeId ? "is-active" : ""}" data-post-id="${escapeAttribute(post.id)}">
           <div class="queue-item-main">
@@ -277,7 +280,6 @@ function renderQueue(errorMessage = "") {
           <div class="queue-item-actions">
             <span class="queue-status" data-tone="${statusTone}">${statusLabel}</span>
             <button class="queue-edit" type="button" data-action="edit" data-post-id="${escapeAttribute(post.id)}">编辑</button>
-            ${post.status !== "archived" ? `<button class="queue-archive" type="button" data-action="archive" data-post-id="${escapeAttribute(post.id)}">归档</button>` : ""}
             <button class="queue-delete" type="button" data-action="delete" data-post-id="${escapeAttribute(post.id)}">删除</button>
           </div>
         </div>
@@ -296,8 +298,6 @@ queue.addEventListener("click", (event) => {
     if (action === "edit") {
       selectPost(id);
       switchTab("publish");
-    } else if (action === "archive") {
-      archiveById(id, button);
     } else if (action === "delete") {
       deleteById(id, button);
     }
@@ -310,22 +310,6 @@ queue.addEventListener("click", (event) => {
     switchTab("publish");
   }
 });
-
-async function archiveById(id, button) {
-  const post = state.posts.find((item) => item.id === id);
-  if (!post) return;
-  if (button) {
-    button.disabled = true;
-    button.textContent = "归档中…";
-  }
-  state.activeId = id;
-  writeForm({ ...post, status: "archived" });
-  await savePost();
-  if (button) {
-    button.disabled = false;
-    button.textContent = "归档";
-  }
-}
 
 async function deleteById(id, button) {
   const post = state.posts.find((item) => item.id === id);
@@ -347,7 +331,7 @@ async function deleteById(id, button) {
     if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
 
     const deletedIds = Array.isArray(payload.deletedIds) && payload.deletedIds.length ? payload.deletedIds : [id];
-    deletedIds.forEach((deletedId) => state.deletedIds.add(deletedId));
+    rememberDeletedIds(deletedIds);
     state.posts = state.posts.filter((item) => !state.deletedIds.has(item.id));
     if (state.deletedIds.has(state.activeId)) {
       state.activeId = "";
@@ -399,7 +383,7 @@ function writeForm(post) {
   form.elements.slug.value = post.slug || "";
   form.elements.summary.value = post.summary || "";
   form.elements.tags.value = (post.tags || []).join(", ");
-  form.elements.status.value = post.status || "draft";
+  form.elements.status.value = post.status === "published" ? "published" : "draft";
   form.elements.body.value = post.body || "";
   form.elements.publishedAt.value = toDatetimeLocal(post.publishedAt);
   const author = post.authorId || "me";
@@ -576,7 +560,7 @@ async function savePost() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `API returned ${response.status}`);
 
-    state.deletedIds.delete(payload.post.id);
+    forgetDeletedId(payload.post.id);
     state.dirty = false;
     await loadAdminPosts();
 
@@ -658,6 +642,43 @@ function requestHeaders() {
   const password = passwordInput.value;
   if (username && password) headers.authorization = `Basic ${encodeBasicAuth(username, password)}`;
   return headers;
+}
+
+function loadRecentDeletedEntries() {
+  const now = Date.now();
+  try {
+    const entries = JSON.parse(localStorage.getItem(RECENTLY_DELETED_KEY) || "{}");
+    const freshEntries = Object.fromEntries(
+      Object.entries(entries).filter(([, timestamp]) => now - Number(timestamp) < RECENTLY_DELETED_TTL_MS)
+    );
+    localStorage.setItem(RECENTLY_DELETED_KEY, JSON.stringify(freshEntries));
+    return freshEntries;
+  } catch {
+    localStorage.removeItem(RECENTLY_DELETED_KEY);
+    return {};
+  }
+}
+
+function storeRecentDeletedEntries(entries) {
+  localStorage.setItem(RECENTLY_DELETED_KEY, JSON.stringify(entries));
+}
+
+function rememberDeletedIds(ids) {
+  const entries = loadRecentDeletedEntries();
+  const now = Date.now();
+  ids.filter(Boolean).forEach((id) => {
+    entries[id] = now;
+    state.deletedIds.add(id);
+  });
+  storeRecentDeletedEntries(entries);
+}
+
+function forgetDeletedId(id) {
+  if (!id) return;
+  const entries = loadRecentDeletedEntries();
+  delete entries[id];
+  state.deletedIds.delete(id);
+  storeRecentDeletedEntries(entries);
 }
 
 function persistCredentials() {

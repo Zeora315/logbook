@@ -1,6 +1,5 @@
 import {
   adminPost,
-  archivePost,
   deletePost,
   getPost,
   handleError,

@@ -2052,7 +2052,6 @@ a.tag-pill:hover {
 }
 
 .queue-edit,
-.queue-archive,
 .queue-delete {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -2065,16 +2064,11 @@ a.tag-pill:hover {
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
-.queue-edit:hover,
-.queue-archive:hover {
+.queue-edit:hover {
   background: var(--surface-soft);
   border-color: var(--line-strong);
   box-shadow: 0 2px 6px rgba(15, 17, 21, 0.06);
   transform: translateY(-1px);
-}
-
-.queue-archive {
-  color: var(--danger);
 }
 
 .queue-delete {
@@ -2090,7 +2084,6 @@ a.tag-pill:hover {
 }
 
 .queue-edit:disabled,
-.queue-archive:disabled,
 .queue-delete:disabled {
   opacity: 0.55;
   cursor: not-allowed;

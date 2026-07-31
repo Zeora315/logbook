@@ -1,7 +1,6 @@
 import {
   AUTHORS,
   adminPost,
-  archivePost,
   deletePost,
   getFeed,
   getPost,

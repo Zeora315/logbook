@@ -11,7 +11,6 @@ const AUTHORS = {
 
 const INDEX_ADMIN = "index:admin:latest";
 const INDEX_PUBLISHED = "index:published:latest";
-const STATUS_VALUES = new Set(["draft", "published", "archived"]);
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8MB，KV 单值上限 25MB，留余量
 
 class HttpError extends Error {
@@ -125,7 +124,7 @@ async function getPost(kv, id) {
   return post;
 }
 
-// ===== 保存 / 归档 / 删除 =====
+// ===== 保存 / 删除 =====
 
 async function savePost(kv, input, context = {}) {
   assertKv(kv);
@@ -141,7 +140,7 @@ async function savePost(kv, input, context = {}) {
     throw new HttpError(404, "Post not found for update. Create a new post without an id.");
   }
 
-  const status = STATUS_VALUES.has(input.status) ? input.status : "draft";
+  const status = input.status === "published" ? "published" : "draft";
   const authorId = AUTHORS[input.authorId] ? input.authorId : "me";
   const baseSlug = slugify(input.slug || title);
   const slug = await ensureUniqueSlug(kv, baseSlug, existing?.id);
@@ -160,7 +159,7 @@ async function savePost(kv, input, context = {}) {
   } else if (willPublish && !publishedAt) {
     publishedAt = now;
   }
-  // 取消发布（草稿/归档）时保留原发布时间，便于重新发布
+  // 取消发布（草稿）时保留原发布时间，便于重新发布
 
   const post = {
     id, title, slug, authorId, status, tags,
@@ -199,11 +198,6 @@ async function savePost(kv, input, context = {}) {
   await Promise.all(writes);
   await rebuildIndexes(kv, id);
   return post;
-}
-
-async function archivePost(kv, id, context = {}) {
-  const existing = await getPost(kv, id);
-  return savePost(kv, { ...existing, status: "archived" }, context);
 }
 
 async function deletePost(kv, id, context = {}) {
@@ -361,7 +355,7 @@ function absoluteUrl(origin, url) {
 function publicPost(post) {
   return {
     id: post.id, title: post.title, slug: post.slug, authorId: post.authorId,
-    status: post.status, tags: post.tags || [], summary: post.summary || "",
+    status: post.status === "published" ? "published" : "draft", tags: post.tags || [], summary: post.summary || "",
     body: post.body || "",
     links: post.links || [],
     attachments: post.attachments || [],
@@ -517,9 +511,10 @@ async function getPostsByIds(kv, ids) {
   return posts.filter(Boolean);
 }
 
-// 关键：扫描 KV 中所有真实存储的 post，过滤已删除
+// 关键：扫描 KV 中所有真实存储的 post，过滤已删除，并清理历史遗留的 archived 残留
 async function listStoredPosts(kv) {
   const posts = [];
+  const archivedRecords = [];
   let cursor;
   do {
     const result = await kv.list({ prefix: "post:", cursor });
@@ -528,16 +523,33 @@ async function listStoredPosts(kv) {
       .map((item) => item.name)
       .filter((name) => /^post:[^:]+$/.test(name));
     const pagePosts = await Promise.all(keys.map((key) => getStoredPost(kv, key)));
-    posts.push(...pagePosts.filter(Boolean));
+    pagePosts.forEach((post) => {
+      if (!post) return;
+      // 归档已废弃，只保留草稿/已发布；自动硬删除历史遗留的 archived 数据
+      if (post.status === "archived") {
+        archivedRecords.push(post);
+        return;
+      }
+      posts.push(post);
+    });
     cursor = result.cursor;
     if (result.list_complete) break;
   } while (cursor);
+  // 硬删除归档残留（含 slug 占用与删除标记），彻底清除避免再次出现
+  if (archivedRecords.length) {
+    await Promise.all(archivedRecords.flatMap((post) => [
+      kv.delete(keyPost(post.id)),
+      post.slug ? kv.delete(keySlug(post.slug)) : Promise.resolve(),
+      kv.delete(keyDeleted(post.id))
+    ]));
+  }
   return posts;
 }
 
 async function getStoredPost(kv, key) {
   const post = await getJson(kv, key);
   if (!post?.id) return null;
+  if (isDeletedPost(post)) return null;
   const deleted = await kv.get(keyDeleted(post.id));
   return deleted ? null : post;
 }
@@ -550,7 +562,7 @@ async function rebuildIndexes(kv, changedId) {
   ]);
   const [indexedPosts, changedPost] = await Promise.all([
     getPostsByIds(kv, [...adminIds, ...publishedIds]),
-    changedId ? getJson(kv, keyPost(changedId)) : null
+    changedId ? getStoredPost(kv, keyPost(changedId)) : null
   ]);
   const posts = mergePosts(indexedPosts, storedPosts, changedPost ? [changedPost] : []).sort(sortPosts);
   await writeIndexes(kv, posts);
@@ -569,9 +581,10 @@ async function repairIndexesIfNeeded(kv, posts) {
 }
 
 async function writeIndexes(kv, posts) {
-  const published = posts.filter((post) => post.status === "published");
+  const visiblePosts = posts.filter((post) => !isDeletedPost(post));
+  const published = visiblePosts.filter((post) => post.status === "published");
   await Promise.all([
-    putJson(kv, INDEX_ADMIN, posts.map((post) => post.id)),
+    putJson(kv, INDEX_ADMIN, visiblePosts.map((post) => post.id)),
     putJson(kv, INDEX_PUBLISHED, published.map((post) => post.id)),
     ...Object.keys(AUTHORS).map((authorId) =>
       putJson(kv, `index:author:${authorId}`, published.filter((post) => post.authorId === authorId).map((post) => post.id))
@@ -584,6 +597,10 @@ function mergePosts(...groups) {
   const map = new Map();
   groups.flat().filter(Boolean).forEach((post) => { map.set(post.id, post); });
   return [...map.values()];
+}
+
+function isDeletedPost(post) {
+  return post?.deleted === true || post?.status === "deleted";
 }
 
 async function findDeleteCompanions(kv, source) {
